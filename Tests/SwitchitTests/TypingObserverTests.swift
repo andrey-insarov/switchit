@@ -37,8 +37,8 @@ final class TypingObserverTests: XCTestCase {
 
     func testTwoCapitalsAreLeftAlone() {
         var o = observer()
-        XCTAssertEqual(type("ghb", &o, shift: true).last, .none)
-        XCTAssertEqual(type("dtn", &o, shift: true).last, .none)
+        XCTAssertEqual(type("ghb", &o, shift: true).last, TypingObserver.Decision.none)
+        XCTAssertEqual(type("dtn", &o, shift: true).last, TypingObserver.Decision.none)
         XCTAssertEqual(o.handle(.key(.space, [])), .leftAlone(keys: Keys.codes("ghbdtn"), terminator: .space, from: "en", verdict: nil))
     }
 
