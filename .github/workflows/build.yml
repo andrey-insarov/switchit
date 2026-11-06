@@ -1,0 +1,47 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+# Least privilege; the release job (stage 5) will raise it explicitly.
+permissions:
+  contents: read
+
+# Third-party actions are pinned to commit SHAs (Dependabot keeps them fresh).
+
+jobs:
+  # Every push and PR: build, test, ad-hoc bundle. No secrets.
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0            # BUILD_NO = commit count
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build (debug, warnings visible)
+        run: swift build
+
+      - name: Unit tests
+        run: swift test
+
+      - name: Package app (ad-hoc)
+        run: make app VERSION=$(cat VERSION)
+
+      - name: Launch smoke test (bundle starts and stays up for 5 s)
+        run: |
+          ./Switchit.app/Contents/MacOS/Switchit & PID=$!
+          sleep 5
+          kill -0 $PID
+          kill $PID
+
+      - name: Upload ad-hoc build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Switchit-adhoc-${{ github.sha }}
+          path: Switchit.app

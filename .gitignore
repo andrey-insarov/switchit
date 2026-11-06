@@ -1,0 +1,21 @@
+.build/
+.build-appstore/
+*.app/
+*.zip
+.DS_Store
+.swiftpm/
+Resources/Switchit.provisionprofile
+*.pkg
+appcast.xml
+SPARKLE_PUBLIC_KEY
+Resources/SwitchitDevID.provisionprofile
+*.sig
+SHA256SUMS
+
+# Signing material — never commit (lives in KeePass + the GitHub "release" environment)
+*.p12
+*.p8
+*.provisionprofile
+sparkle_private_key*
+__pycache__/
+*.dmg

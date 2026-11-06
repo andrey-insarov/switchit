@@ -1,0 +1,76 @@
+/// Collects the key strokes of the word being typed and reports when a word is complete.
+///
+/// The buffer knows nothing about layouts or languages. It only decides what a word is:
+/// a run of strokes on word-forming keys (the union of every enabled layout's letter keys),
+/// ended by a boundary — Space, Return, Tab, a non-letter key, a mouse click, a change of
+/// window or input source. The detector gets the finished run; everything else is dropped.
+///
+/// Pure value type: the app feeds it from the event tap, tests feed it directly.
+public struct WordBuffer: Sendable {
+    /// What the buffer reports after a stroke.
+    public enum Event: Equatable, Sendable {
+        /// Nothing to act on yet.
+        case none
+        /// A word ended. `strokes` is the complete run; `terminator` is the key that ended it
+        /// (nil when the end came from `flush()` — a click, focus change, etc.).
+        case word(strokes: [KeyStroke], terminator: KeyCode?)
+    }
+
+    /// Keys that continue a word. Build it from `Layout.letterKeys` of every enabled layout.
+    public let wordKeys: Set<KeyCode>
+    /// Longest run that is still treated as a word. Longer runs (pasted-looking input, key
+    /// repeat held down, identifiers) are discarded rather than analysed.
+    public let maxLength: Int
+
+    private(set) public var strokes: [KeyStroke] = []
+    /// Set once a run grows past `maxLength`; cleared at the next boundary. The run is not a word.
+    private var overflowed = false
+
+    public init(wordKeys: Set<KeyCode>, maxLength: Int = 32) {
+        precondition(maxLength > 0)
+        self.wordKeys = wordKeys
+        self.maxLength = maxLength
+    }
+
+    public var isEmpty: Bool { strokes.isEmpty }
+
+    /// Feeds one key press.
+    public mutating func append(_ stroke: KeyStroke) -> Event {
+        if stroke.code == .delete {
+            if !strokes.isEmpty { strokes.removeLast() }
+            return .none
+        }
+        if wordKeys.contains(stroke.code) {
+            if overflowed { return .none }
+            strokes.append(stroke)
+            if strokes.count > maxLength {
+                strokes.removeAll()
+                overflowed = true
+            }
+            return .none
+        }
+        // Any other key ends the run. Escape is a boundary too, but the word it ends is not
+        // reported: the user is backing out of something, not finishing a word.
+        let finished = take()
+        if stroke.code == .escape || finished.isEmpty { return .none }
+        return .word(strokes: finished, terminator: stroke.code)
+    }
+
+    /// Ends the current run without a key — mouse click, window or input-source change.
+    /// Reports the run as a word if there is one.
+    public mutating func flush() -> Event {
+        let finished = take()
+        return finished.isEmpty ? .none : .word(strokes: finished, terminator: nil)
+    }
+
+    /// Drops the current run silently.
+    public mutating func reset() {
+        strokes.removeAll()
+        overflowed = false
+    }
+
+    private mutating func take() -> [KeyStroke] {
+        defer { reset() }
+        return overflowed ? [] : strokes
+    }
+}
