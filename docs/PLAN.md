@@ -127,9 +127,10 @@ Settings panes: see Interface above.
 - If a key of the word is punctuation in the active layout (`hello,` `can't` `end.`), switch only
   to a dictionary word of the other language, never on the model alone.
 - Words with two or more capitals (abbreviations, `iPhone`) are left alone.
-- A decision is made only of finite numbers; a model that is incomplete, truncated, or whose
-  weights do not add up does not load (`records` count, unigram coverage, `total` = Σ unigrams,
-  finite row sums, letters-only alphabet — auditor's P2).
+- A decision is made only of finite numbers; a model that is incomplete, truncated, edited, or
+  whose weights do not add up does not load (`records` count, `sha256` of the record lines,
+  trailing LF on every line, unigram coverage, `total` = Σ unigrams, finite row sums,
+  letters-only alphabet — auditor's P2, rounds 1 and 2).
 - Bench, 19 000 held-out words typed in the right layout: 0.032 % (en) / 0.042 % (ru) false
   switches at the boundary; typed in the wrong layout: 93.1 % of English and 63.3 % of Russian words
   fixed at the boundary (Russian ones are mostly caught earlier, mid-word).
