@@ -25,6 +25,13 @@ while secure input is on; off by default; a menu-bar indicator while it records;
 exclusions with password managers, banks and messengers excluded by default; local only, no
 automatic backup. Its own staged review by the auditor.
 
+Storage (decided 6 Nov): a folder of sealed segments, one file per day (or hour), no database. The
+current segment stays in memory and is sealed periodically and on quit; erasing a period deletes its
+files, erasing everything deletes the folder; search decrypts the segments of the chosen period in
+memory, no index. Not SQLite: the system SQLite has no encryption, row-level encryption leaves
+metadata and fragments in the journal / WAL, and SQLCipher brings third-party C crypto into the build
+and the export-compliance question. Revisit SQLCipher only if fast search across years is needed.
+
 ## macOS mechanisms it builds on
 
 - **Key interception**: `CGEvent.tapCreate` (session tap, head insert) for `keyDown` /
