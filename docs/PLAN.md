@@ -47,6 +47,10 @@ item. No cloud, no account, no analytics in the app.
 
 Menu-bar app like Keepit. Menu items:
 
+0. **Status line** (disabled item, top): current layout, or "Paused", or "Password field — not
+   watching" while secure input is on (confirmed by Andrey 6 Nov).
+0. **Pause / Resume** — stops all switching and corrections without quitting, like ⌥P in Keepit
+   (confirmed by Andrey 6 Nov); the menu-bar icon shows the paused state.
 1. **Settings…**
 2. **Exceptions…** — programs and words (word + applications), the visible editable lists.
 3. **Launch at Login** — checkbox (`SMAppService.mainApp`).
