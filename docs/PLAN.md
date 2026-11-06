@@ -9,13 +9,30 @@ Automatic layout switching when a word was typed in the wrong layout (ru/en firs
 the word already typed, manual correction by hot key, per-application exclusions, menu bar, login
 item. No cloud, no account, no analytics in the app.
 
+## Two editions (decided 6 Nov)
+
+One code base, a build flag `SWITCHIT_APPSTORE`, the same way Keepit has `KEEPIT_APPSTORE`:
+
+- **Full** — Developer ID, notarized DMG, Sparkle updates, every feature including the typing
+  diary (1.x).
+- **App Store edition** — sandboxed, no Sparkle, storage only inside the container / app group or
+  in places the user picks, **no diary** (`#if !APPSTORE`).
+
+## Typing diary (1.x, Full edition only)
+
+Encrypted with Keepit's container (header as AAD, PBKDF2/HKDF, LZFSE, verify on read). Never records
+while secure input is on; off by default; a menu-bar indicator while it records; per-application
+exclusions with password managers, banks and messengers excluded by default; local only, no
+automatic backup. Its own staged review by the auditor.
+
 ## macOS mechanisms it builds on
 
 - **Key interception**: `CGEvent.tapCreate` (session tap, head insert) for `keyDown` /
   `flagsChanged`. An active tap (one that may swallow or modify events) needs the **Accessibility**
   permission; a listen-only tap needs Input Monitoring. We need the active one: a correction deletes
-  the word and types it again. Consequence: the app cannot run in the sandbox → **Developer ID +
-  notarization only**, no Mac App Store.
+  the word and types it again. Accessibility is a TCC permission granted by the user at run time,
+  not an entitlement, so it works in a sandboxed build too (checked 6 Nov on the App Store build of
+  Caramba Switcher: sandboxed, and it links `CGEventTapCreate`, `CGEventPost`, `AXIsProcessTrusted`).
 - **Secure input**: while a password field has focus the tap receives no key events;
   `IsSecureEventInputEnabled()` → pause, and say so in the menu.
 - **Layouts**: `TISCreateInputSourceList` (keyboard input sources, enabled only),
@@ -85,8 +102,8 @@ General / Shortcuts / Languages / Exclusions / Advanced — HIG, the Keepit rule
 per pane, help behind (?), no truncation ellipses). Exclusions: words and applications. Login item.
 First run. Localizations with Keepit's `add_strings.py`.
 
-**Stage 5 — release 1.0.** Developer ID, notarization, DMG, Sparkle, one site page, privacy policy
-(Keepit wording). Not in 1.0: other languages, pre-emptive layout switching, syncing exclusions.
+**Stage 5 — release 1.0, both editions.** Full: Developer ID, notarization, DMG, Sparkle. App Store
+edition: sandbox, no Sparkle, no diary. One site page, privacy policy (Keepit wording). Not in 1.0: other languages, pre-emptive layout switching, syncing exclusions.
 
 ## Open decisions
 
