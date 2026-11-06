@@ -18,11 +18,14 @@ item. No cloud, no account, no analytics in the app.
    word, the prefix in the other language starts at least 5 dictionary words, and the model margin
    on the prefix is ≥ 1.0. Held-out words: false mid-word switches 0.07 % typing English, 0.01 %
    typing Russian (mostly abbreviations and names: `ltd`, `kfc`, `gecko`); 65 % (EN layout) and
-   76 % (RU layout) of wrong-layout words are caught at the 3rd letter. What is not caught
-   mid-word goes to the whole-word decision at the boundary (rules above).
+   76 % (RU layout) of wrong-layout words are caught at the 3rd letter. If the 3rd letter is not
+   enough, the same check runs again after the 4th, 5th and 6th letters (+6 % / +5 % at the 4th):
+   about 72 % (EN layout) and 82 % (RU layout) are caught mid-word in total; the false-switch figures
+   above already include these later attempts. What is not caught mid-word goes to the whole-word
+   decision at the boundary (rules above).
 2. **Undo with the switch shortcut.** Right after an automatic switch, the shortcut (default:
    **right Option** pressed and released alone) restores the typed text exactly (`Ghb`), puts the
-   layout back to what it was before the switch, plays the *undo* sound, and no further automatic
+   layout back to what it was before the switch (confirmed by Andrey 6 Nov), plays the *undo* sound, and no further automatic
    switch happens in that word — the user continues `un` → `Ghbun`. Otherwise the shortcut is the
    manual conversion of the last word or of the selection (with the *switch* sound). Left Option and
    ⌥-characters are not affected: only a press and release of right Option with no key in between.
@@ -34,7 +37,7 @@ item. No cloud, no account, no analytics in the app.
    times within 24 hours → offer to add it as an exception. An exception is a **word + applications**
    pair; the offer defaults to the current application only, and can be changed to several
    applications or all. The offer never interrupts typing: no window that takes focus — a
-   notification / menu-bar badge, answered when the user chooses. Undo counters (word, app,
+   notification / menu-bar badge, answered when the user chooses (confirmed by Andrey 6 Nov). Undo counters (word, app,
    timestamps) are kept for 24 hours and then pruned; stored like the exclusion lists. Mid-word,
    an exception applies to its prefixes too: if the prefix typed so far is the start of an excepted
    word for this app, the mid-word switch waits for the boundary.
