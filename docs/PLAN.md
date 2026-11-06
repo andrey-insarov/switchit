@@ -43,6 +43,36 @@ item. No cloud, no account, no analytics in the app.
    word for this app, the mid-word switch waits for the boundary.
 5. **Sounds**: *switch* (automatic and manual), *undo*, *typo fixed* — each can be set or off.
 
+## Interface (specified by Andrey 6 Nov)
+
+Menu-bar app like Keepit. Menu items:
+
+1. **Settings…**
+2. **Exceptions…** — programs and words (word + applications), the visible editable lists.
+3. **Launch at Login** — checkbox (`SMAppService.mainApp`).
+4. **Diary…** — a viewer window modelled on Keepit's Viewer, with **Export to HTML** in it.
+5. **Start / Stop Diary** — toggle; the menu-bar icon shows when the diary records.
+6. **Quit**
+
+Items 4–5 are absent in the App Store edition.
+
+Settings panes: **General**, **Security**, **Export / Import**, **Sounds**, **Rules** (correct on
+Space / Tab / Return / shortcut, mid-word switching, typos, ё).
+
+### Diary encryption: write without the reading key
+
+The diary is decrypted only inside the Diary window, when the user opens it. Writing new entries does
+not need the key that reads them:
+
+- Each segment is sealed to the diary's **public key** (Curve25519 key agreement → HKDF → AES-GCM,
+  CryptoKit; works on macOS 13, no HPKE needed). Recording needs no password, and the reading key is
+  not in memory while the app only records.
+- The **private key** is protected by the diary password through the KDF (as in Keepit), and
+  optionally by the Keychain with Touch ID.
+- Opening the Diary window → password or Touch ID → segments are decrypted **in memory only**.
+  Closing the window, locking the screen or N minutes idle → plaintext dropped, private key unloaded.
+- Plaintext reaches the disk only through **Export to HTML**. No temporary files.
+
 ## Features beyond layout switching (requested 6 Nov)
 
 All word-level corrections run as **one pipeline of rules** at a word boundary — layout → typos → ё —
@@ -76,8 +106,7 @@ list. Only one rewrite per word per pass; a rule never fires on a word another r
   Punto). Defaults: Space and Return on, Tab off (Tab is completion in terminals and IDEs), shortcut
   set. `WordBuffer` already reports the terminator; the trigger set is a filter on it.
 
-Settings panes: General / Shortcuts / Languages / Typos / ё / Exclusions (Programs, Words) / Sounds /
-Advanced.
+Settings panes: see Interface above.
 
 ## Two editions (decided 6 Nov)
 
