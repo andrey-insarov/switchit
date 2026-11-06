@@ -63,7 +63,8 @@ final class LanguageModelTests: XCTestCase {
     }
 
     func testRefusesLanguageMismatch() {
-        XCTAssertThrowsError(try load(good, language: "ru")) { e in
+        // The file says en; the caller asked for ru.
+        XCTAssertThrowsError(try LanguageModel(language: "ru", modelText: Stage1AuditTests.text(good, lang: "en"))) { e in
             XCTAssertEqual(e as? LanguageModel.Failure, .languageMismatch(expected: "ru", found: "en"))
         }
     }

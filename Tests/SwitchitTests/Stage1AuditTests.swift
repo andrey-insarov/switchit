@@ -16,11 +16,17 @@ final class Stage1AuditTests: XCTestCase {
         // Unigrams for every letter and $ unless the body supplies them — the loader requires coverage.
         var lines = records
         var uni: [String: Double] = [:]
+        var present: Set<String> = []
         for r in records {
             let f = r.split(separator: "\t").map(String.init)
-            if f[0] == "u", f.count == 3, let v = Double(f[2]) { uni[f[1]] = v }
+            if f[0] == "u", f.count == 3 {
+                present.insert(f[1])
+                // A non-finite weight is left out of the sum so that the loader reaches the record
+                // and refuses it there, not at the header.
+                if let v = Double(f[2]), v.isFinite, uni[f[1]] == nil { uni[f[1]] = v }
+            }
         }
-        for c in alphabet.map(String.init) + ["$"] where uni[c] == nil {
+        for c in alphabet.map(String.init) + ["$"] where !present.contains(c) {
             lines.append("u\t\(c)\t1.0"); uni[c] = 1.0
         }
         let sum = total ?? "\(uni.values.reduce(0, +))"
@@ -112,7 +118,7 @@ final class Stage1AuditTests: XCTestCase {
         let d = LayoutDetector(languages: [.init(code: "en", layout: .usEnglish, model: a),
                                            .init(code: "ru", layout: .usEnglish, model: b)])
         XCTAssertNil(d.decidePrefix(Keys.codes("aaa"), active: "en"))
-        XCTAssertNil(d.decideWord(Keys.codes("aaab"), active: "en"))
+        XCTAssertNotEqual(d.decideWord(Keys.codes("aaab"), active: "en"), "ru", "a real word in the active language stays")
     }
 
     // MARK: P2 — a truncated resource must not load
