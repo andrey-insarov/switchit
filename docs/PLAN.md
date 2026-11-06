@@ -37,8 +37,22 @@ browser, an editor, grep. Rules: only on an explicit action, never automatic or 
 picks the location in a save panel, after one warning that the file is not encrypted; a period and
 applications can be chosen; the warning says that in an ordinary folder Spotlight indexes the file,
 Time Machine keeps a copy, and a synced folder (iCloud Drive, Dropbox) uploads it; one self-contained
-HTML file with no external links or scripts, grouped by day and application with anchors. A
-password-protected zip is optional (open decision).
+HTML file with no external links or scripts, grouped by day and application with anchors.
+
+## Moving to another Mac: encrypted archive and import
+
+Not a password zip: `zip -e` uses ZipCrypto, which is broken, and AES zip needs a third-party library
+(macOS Archive Utility neither creates nor opens it). Instead one `.switchit` file built on Keepit's
+container (AES-GCM, PBKDF2, LZFSE, verify on read), sealed with an export password:
+
+- Contents: settings, personal word lists, application exclusions, and — optionally, Full edition
+  only — the diary. Diary segments are decrypted in memory and resealed under the export password;
+  the diary key of the old Mac never leaves it.
+- Import follows Keepit's Restore flow: open → password → preview (days of diary, words in the lists)
+  → merge or replace → commit with a journal and rollback. Merging joins diary days.
+- Import is external input: bounded read, one validation point, the auditor's A–J matrix as for
+  `.keepit`.
+- The App Store edition has export and import too, without the diary.
 
 ## macOS mechanisms it builds on
 
