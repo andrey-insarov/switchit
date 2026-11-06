@@ -14,7 +14,7 @@ item. No cloud, no account, no analytics in the app.
 1. **Switch mid-word, from the 3rd letter.** Layout is English, the user types `Ghb`. As soon as
    the prefix is clearly Russian, Switchit replaces it with `При`, plays the *switch* sound and
    switches the layout, so the user keeps typing the rest of the word in Russian. Rule (bench
-   `Scripts/prefix_bench.py`): the prefix in the active language is not the start of any dictionary
+   `Scripts/detector_proto.py`): the prefix in the active language is not the start of any dictionary
    word, the prefix in the other language starts at least 5 dictionary words, and the model margin
    on the prefix is ≥ 1.0. Held-out words: false mid-word switches 0.07 % typing English, 0.01 %
    typing Russian (mostly abbreviations and names: `ltd`, `kfc`, `gecko`); 65 % (EN layout) and
@@ -111,6 +111,18 @@ list. Only one rewrite per word per pass; a rule never fires on a word another r
   set. `WordBuffer` already reports the terminator; the trigger set is a filter on it.
 
 Settings panes: see Interface above.
+
+## Detector rules for 1.0 (reference: `Scripts/detector_proto.py`)
+
+- Words shorter than 4 letters are decided only by the hand-curated lists
+  `Sources/SwitchitCore/Resources/short-{ru,en}.txt`.
+- A word known in both languages is left alone.
+- If a key of the word is punctuation in the active layout (`hello,` `can't` `end.`), switch only
+  to a dictionary word of the other language, never on the model alone.
+- Words with two or more capitals (abbreviations, `iPhone`) are left alone.
+- Bench, 19 000 held-out words typed in the right layout: 0.064 % (en) / 0.062 % (ru) false
+  switches at the boundary; typed in the wrong layout: 92.9 % of English and 63.1 % of Russian words
+  fixed at the boundary (Russian ones are mostly caught earlier, mid-word).
 
 ## Two editions (decided 6 Nov)
 
