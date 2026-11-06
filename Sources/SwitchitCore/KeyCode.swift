@@ -68,6 +68,13 @@ public struct KeyCode: Hashable, Sendable {
     public static let space = KeyCode(0x31)
     public static let delete = KeyCode(0x33)   // Backspace
     public static let escape = KeyCode(0x35)
+    public static let leftArrow = KeyCode(0x7B)
+    public static let rightArrow = KeyCode(0x7C)
+    public static let downArrow = KeyCode(0x7D)
+    public static let upArrow = KeyCode(0x7E)
+
+    /// The caret moved: the buffer no longer matches what is on screen.
+    public var isArrow: Bool { self == .leftArrow || self == .rightArrow || self == .downArrow || self == .upArrow }
 }
 
 /// One key press as the detector sees it: which key, and whether Shift was held.

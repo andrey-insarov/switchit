@@ -35,6 +35,7 @@ app: build
 	rm -rf $(BUNDLE)
 	mkdir -p $(CONTENTS)/MacOS $(CONTENTS)/Resources
 	cp $(BUILD)/$(APP) $(CONTENTS)/MacOS/$(APP)
+	cp -R $(BUILD)/Switchit_SwitchitCore.bundle $(CONTENTS)/Resources/      # language models (SwiftPM resource bundle)
 	sed $(PLIST_SUBST) Resources/Info.plist > $(CONTENTS)/Info.plist
 	echo -n 'APPL????' > $(CONTENTS)/PkgInfo
 	xattr -cr $(BUNDLE)

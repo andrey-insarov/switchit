@@ -125,8 +125,35 @@ class NGramModel:
 
 
 # ---- data -----------------------------------------------------------------------------------
+VOWELS = {"en": set("aeiouy"), "ru": set("аеёиоуыэюя")}
+
+
+def load_stop(lang):
+    path = os.path.join(RESOURCES, f"stop-{lang}.txt")
+    out = set()
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                out.add(line)
+    return out
+
+
+def is_junk(w, lang):
+    """Subtitle junk that is spelled with letters only: a letter three times in a row (mmm, aaah,
+    chffffff) or three or more letters without a vowel (ghb, ght, pfc, cctv, ввс). No real word of
+    either language has a triple letter, and the vowelless ones are abbreviations and noises."""
+    for i in range(len(w) - 2):
+        if w[i] == w[i + 1] == w[i + 2]:
+            return True
+    if len(w) >= 3 and not any(c in VOWELS[lang] for c in w):
+        return True
+    return False
+
+
 def load_list(path, lang):
-    """[(word, count)] keeping only words that the layout can type."""
+    """[(word, count)] keeping only words that the layout can type, minus junk and the stop list."""
+    stop = load_stop(lang)
     words = []
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -134,7 +161,7 @@ def load_list(path, lang):
             if len(parts) != 2:
                 continue
             w, n = parts[0].lower(), int(parts[1])
-            if encode(w, lang) is None:
+            if encode(w, lang) is None or is_junk(w, lang) or w in stop:
                 continue
             words.append((w, n))
     return words
@@ -384,7 +411,8 @@ def main():
         print(f"{lang}: {len(det.data[lang].words)} training words, {len(tests[lang])} held out, "
               f"{len(det.data[lang].short)} short words")
     evaluate(det, tests)
-    hard_cases(det)
+    full, _ = build(args.data, held_out=False)
+    hard_cases(full)
 
 
 if __name__ == "__main__":

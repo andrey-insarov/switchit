@@ -96,4 +96,40 @@ final class WordBufferTests: XCTestCase {
         var both = WordBuffer(wordKeys: wordKeys)
         XCTAssertEqual(type([.a, .semicolon], into: &both), [.none, .none])
     }
+
+    // MARK: Arrow veto (behaviour spec, item 3)
+
+    func testArrowDropsTheWordAndEverythingUntilTheBoundary() {
+        var buffer = WordBuffer(wordKeys: wordKeys)
+        _ = type([.g, .h, .leftArrow], into: &buffer)
+        XCTAssertTrue(buffer.strokes.isEmpty)
+        XCTAssertTrue(buffer.suppressed)
+        // More letters in the same word are not collected: nothing to correct at the boundary.
+        XCTAssertEqual(type([.b, .d, .space], into: &buffer), [.none, .none, .none])
+        XCTAssertFalse(buffer.suppressed)
+        XCTAssertEqual(type([.o, .k, .space], into: &buffer).last,
+                       .word(strokes: [KeyStroke(.o), KeyStroke(.k)], terminator: .space))
+    }
+
+    func testEveryArrowVetoes() {
+        for arrow in [KeyCode.leftArrow, .rightArrow, .upArrow, .downArrow] {
+            var buffer = WordBuffer(wordKeys: wordKeys)
+            _ = type([.g, .h, arrow], into: &buffer)
+            XCTAssertEqual(buffer.flush(), .none, "\(arrow.raw)")
+        }
+    }
+
+    func testFlushAfterArrowReportsNothing() {
+        var buffer = WordBuffer(wordKeys: wordKeys)
+        _ = type([.g, .h, .b, .rightArrow], into: &buffer)
+        XCTAssertEqual(buffer.flush(), .none)
+    }
+
+    func testCapitalsCount() {
+        var buffer = WordBuffer(wordKeys: wordKeys)
+        _ = buffer.append(KeyStroke(.i, shift: true))
+        _ = buffer.append(KeyStroke(.p, shift: true))
+        _ = buffer.append(KeyStroke(.h))
+        XCTAssertEqual(buffer.capitals, 2)
+    }
 }

@@ -1,0 +1,9 @@
+# Entries removed from the English frequency list before the model and dictionary are built.
+# Subtitle junk that the letter filter and the junk rules (a letter three times in a row, no
+# vowel) do not catch: run-together words and OCR fragments. Each one, left in, blocks the
+# mid-word switch for many Russian words (ifyou blocks шанс, ljust blocks договорились, …).
+buh
+ifyou
+lfyou
+ljust
+lfl

@@ -23,8 +23,10 @@ public struct WordBuffer: Sendable {
     public let maxLength: Int
 
     private(set) public var strokes: [KeyStroke] = []
-    /// Set once a run grows past `maxLength`; cleared at the next boundary. The run is not a word.
-    private var overflowed = false
+    /// Set when the run is no longer a word — it grew past `maxLength`, or the user moved the
+    /// caret with an arrow key (the buffer no longer matches the screen). Letters are dropped
+    /// until the next boundary; nothing is reported for the run.
+    private(set) public var suppressed = false
 
     public init(wordKeys: Set<KeyCode>, maxLength: Int = 32) {
         precondition(maxLength > 0)
@@ -41,12 +43,19 @@ public struct WordBuffer: Sendable {
             return .none
         }
         if wordKeys.contains(stroke.code) {
-            if overflowed { return .none }
+            if suppressed { return .none }
             strokes.append(stroke)
             if strokes.count > maxLength {
                 strokes.removeAll()
-                overflowed = true
+                suppressed = true
             }
+            return .none
+        }
+        if stroke.code.isArrow {
+            // Veto: the user moved the caret inside or right after the word. Drop the run and
+            // keep dropping until a boundary — this word is never corrected.
+            strokes.removeAll()
+            suppressed = true
             return .none
         }
         // Any other key ends the run. Escape is a boundary too, but the word it ends is not
@@ -66,11 +75,14 @@ public struct WordBuffer: Sendable {
     /// Drops the current run silently.
     public mutating func reset() {
         strokes.removeAll()
-        overflowed = false
+        suppressed = false
     }
+
+    /// Number of upper-case letters in the current run.
+    public var capitals: Int { strokes.lazy.filter(\.shift).count }
 
     private mutating func take() -> [KeyStroke] {
         defer { reset() }
-        return overflowed ? [] : strokes
+        return suppressed ? [] : strokes
     }
 }
