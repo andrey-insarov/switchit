@@ -24,7 +24,7 @@ import os
 from collections import defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RESOURCES = os.path.join(HERE, "..", "Sources", "SwitchitCore", "Resources")
+DATA = os.path.join(HERE, "..", "Data")
 
 # ---- layouts: key position -> letter --------------------------------------------------------
 # Key positions are written as the US character on the key. Same QWERTY order as
@@ -119,7 +119,10 @@ class NGramModel:
         return sum(self._char_logp(s, i) for i in range(2, len(s))) / (len(word) + 1)
 
     def prefix_logp(self, text):
-        """Average log-prob per character of a word start (no end-of-word term)."""
+        """Average log-prob per character of a word start (no end-of-word term); 0 for an empty
+        start (the average over nothing is defined as log 1 — auditor's P3)."""
+        if not text:
+            return 0.0
         s = BOS + BOS + text
         return sum(self._char_logp(s, i) for i in range(2, len(s))) / len(text)
 
@@ -129,14 +132,7 @@ VOWELS = {"en": set("aeiouy"), "ru": set("аеёиоуыэюя")}
 
 
 def load_stop(lang):
-    path = os.path.join(RESOURCES, f"stop-{lang}.txt")
-    out = set()
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                out.add(line)
-    return out
+    return load_curated("stop", lang)
 
 
 def is_junk(w, lang):
@@ -167,8 +163,9 @@ def load_list(path, lang):
     return words
 
 
-def load_short(lang):
-    path = os.path.join(RESOURCES, f"short-{lang}.txt")
+def load_curated(kind, lang):
+    """A hand-curated word list from Data/<kind>-<lang>.txt: one word per line, # comments."""
+    path = os.path.join(DATA, f"{kind}-{lang}.txt")
     out = set()
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -176,6 +173,10 @@ def load_short(lang):
             if line and not line.startswith("#"):
                 out.add(line)
     return out
+
+
+def load_short(lang):
+    return load_curated("short", lang)
 
 
 def split(words):
@@ -187,25 +188,6 @@ def split(words):
 
 
 PREFIX_MAX = 6
-
-
-class LanguageData:
-    """Everything the detector knows about one language."""
-
-    def __init__(self, lang, words):
-        self.lang = lang
-        self.model = NGramModel(set(LAYOUTS[lang].values()))
-        self.words = set()
-        self.prefixes = defaultdict(int)
-        for w, n in words:
-            self.model.train(w, weight=math.log1p(n))
-            self.words.add(w)
-            for k in range(1, min(len(w), PREFIX_MAX) + 1):
-                self.prefixes[w[:k]] += 1
-        self.short = load_short(lang)
-
-
-# ---- detector -------------------------------------------------------------------------------
 MIN_MODEL_LEN = 4      # shorter words: short-word list only
 WORD_MARGIN = 1.0
 DICT_BONUS = 1.5
@@ -214,13 +196,49 @@ PREFIX_SUPPORT = 5
 PREFIX_MARGIN = 1.0
 
 
+class LanguageData:
+    """Everything the detector knows about one language.
+
+    Three word sets with different jobs (auditor's P1 findings, 6 Nov):
+      words     — the cleaned frequency list: trains the model, is a correction *target* at 4+
+                  letters and protects 4+ letter words of the active language;
+      short     — hand-curated 2–3 letter words: the only correction targets under 4 letters;
+      protect   — hand-curated words that are never switched away from when their language is
+                  active: short real words the raw list cannot vouch for, and vowelless
+                  abbreviations the cleaning removed (cctv, http, pdf).
+    `protected` = short ∪ protect ∪ {words of 4+ letters}; prefixes are counted over all of them,
+    so a protected word also blocks the mid-word switch at its prefixes.
+    """
+
+    def __init__(self, lang, words):
+        self.lang = lang
+        self.model = NGramModel(set(LAYOUTS[lang].values()))
+        self.words = set()
+        for w, n in words:
+            self.model.train(w, weight=math.log1p(n))
+            self.words.add(w)
+        self.short = load_curated("short", lang)
+        self.protect = load_curated("protect", lang)
+        self.protected = self.short | self.protect | {w for w in self.words if len(w) >= MIN_MODEL_LEN}
+        self.prefixes = defaultdict(int)
+        for w in self.words | self.short | self.protect:
+            for k in range(1, min(len(w), PREFIX_MAX) + 1):
+                self.prefixes[w[:k]] += 1
+
+
+# ---- detector -------------------------------------------------------------------------------
 class Detector:
     def __init__(self, data):
         self.data = data   # {lang: LanguageData}
 
-    def known(self, lang, text):
+    def is_target(self, lang, text):
+        """May the detector switch *to* this word of `lang`?"""
         d = self.data[lang]
         return text in (d.short if len(text) < MIN_MODEL_LEN else d.words)
+
+    def is_protected(self, lang, text):
+        """Is this a real word of `lang` that must never be switched away from?"""
+        return text in self.data[lang].protected
 
     def decide_word(self, keys, active, capitals=0):
         """Language the word was meant in, or None (leave it alone)."""
@@ -229,28 +247,31 @@ class Detector:
         cands = candidates(keys)
         if not cands:
             return None
-        known = {lang: self.known(lang, text) for lang, text in cands.items()}
-        if sum(known.values()) > 1:
-            return None                                   # a real word in both languages
+        if active in cands and self.is_protected(active, cands[active]):
+            return active                                 # a real word in the active language
+        targets = [lang for lang, text in cands.items() if self.is_target(lang, text)]
+        if len(targets) > 1:
+            return None                                   # a real word in more than one language
         if active not in cands:
             # A key is punctuation in the active layout (`hello,` `can't`): switch only to a
             # known word of the other language, never on the model alone.
-            hits = [lang for lang, k in known.items() if k]
-            return hits[0] if len(hits) == 1 else None
+            return targets[0] if len(targets) == 1 else None
         if len(cands) == 1:
             return active                                  # the other layout cannot spell it
         if len(keys) < MIN_MODEL_LEN:
-            hits = [lang for lang, k in known.items() if k]
-            return hits[0] if len(hits) == 1 else None
+            return targets[0] if len(targets) == 1 else None
         scores = {}
         for lang, text in cands.items():
             s = self.data[lang].model.logp(text)
-            if known[lang]:
+            if lang in targets:
                 s += DICT_BONUS
+            if not math.isfinite(s):
+                return None                                # a broken model never decides
             scores[lang] = s
         ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
         best, second = ranked[0], ranked[1]
-        if best[1] - second[1] >= WORD_MARGIN:
+        margin = best[1] - second[1]
+        if math.isfinite(margin) and margin >= WORD_MARGIN:
             return best[0]
         return None
 
@@ -272,7 +293,7 @@ class Detector:
             if self.data[other].prefixes.get(o, 0) < PREFIX_SUPPORT:
                 continue
             margin = self.data[other].model.prefix_logp(o) - self.data[active].model.prefix_logp(a)
-            if margin < PREFIX_MARGIN:
+            if not math.isfinite(margin) or margin < PREFIX_MARGIN:
                 continue
             return other
         return None
@@ -387,6 +408,12 @@ HARD_CASES = [
     ("ok", "en", "en", "short English"),
     ("he", "en", "en", "short English, ру"),
     ("keys", "en", "en", "луны — word in both"),
+    ("cctv", "en", "en", "vowelless abbreviation (auditor P1)"),
+    ("http", "en", "en", "vowelless abbreviation (auditor P1)"),
+    ("рук", "ru", "ru", "real short word, not in short-ru (auditor P1)"),
+    ("лун", "ru", "ru", "real short word (auditor P1)"),
+    ("vs", "en", "en", "real short word (auditor P1)"),
+    ("tot", "en", "en", "real short word (auditor P1)"),
 ]
 
 
@@ -400,6 +427,9 @@ def hard_cases(det):
     print("\n== punctuation in the active layout ==")
     for typed in ("hello,", "can't", "end.", "ok;"):
         print(f"  {typed:8} active en → {det.decide_word(typed, 'en')}")
+    print("\n== mid-word, protected prefixes (auditor P1: pdf) ==")
+    for word in ("pdf", "cctv", "http"):
+        print(f"  {word:5} active en → {det.first_prefix_switch(encode(word, 'en'), 'en')}")
 
 
 def main():

@@ -39,7 +39,14 @@ public struct WordBuffer: Sendable {
     /// Feeds one key press.
     public mutating func append(_ stroke: KeyStroke) -> Event {
         if stroke.code == .delete {
-            if !strokes.isEmpty { strokes.removeLast() }
+            if !strokes.isEmpty {
+                strokes.removeLast()
+            } else if !suppressed {
+                // Backspace past the start of the run: the caret has crossed a boundary into
+                // text the buffer never saw, so whatever is typed next joins something unknown on
+                // screen. Nothing in this run is a word any more (auditor's P2, 6 Nov).
+                suppressed = true
+            }
             return .none
         }
         if wordKeys.contains(stroke.code) {

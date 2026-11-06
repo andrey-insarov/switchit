@@ -31,9 +31,12 @@ final class WordBufferTests: XCTestCase {
         _ = type([.a, .b, .c, .delete, .delete], into: &buffer)
         XCTAssertEqual(buffer.strokes, [KeyStroke(.a)])
         _ = buffer.append(KeyStroke(.delete))
-        _ = buffer.append(KeyStroke(.delete))     // extra backspaces are harmless
         XCTAssertTrue(buffer.isEmpty)
+        XCTAssertFalse(buffer.suppressed, "emptied exactly: still a fresh run")
+        _ = buffer.append(KeyStroke(.delete))     // past the start: the run is suppressed until a boundary
+        XCTAssertTrue(buffer.suppressed)
         XCTAssertEqual(buffer.append(KeyStroke(.space)), .none)
+        XCTAssertFalse(buffer.suppressed)
     }
 
     func testBoundaryWithoutWordReportsNothing() {

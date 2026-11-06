@@ -42,9 +42,22 @@ final class DetectorTests: XCTestCase {
     }
 
     func testWordKnownInBothLanguagesIsLeftAlone() {
-        // keys / луны — reference leaves it alone only when both are dictionary words; the
-        // frequency lists contain both, so the rule applies.
-        XCTAssertNil(det.decideWord(Keys.codes("keys"), active: "en"))
+        // keys / луны: both are dictionary words. Whichever layout is active, the typed word is a
+        // real word there and is protected.
+        XCTAssertEqual(det.decideWord(Keys.codes("keys"), active: "en"), "en")
+        XCTAssertEqual(det.decideWord(Keys.codes("keys"), active: "ru"), "ru")
+    }
+
+    func testProtectedWordsAreNeverSwitchedAway() {
+        for w in ["cctv", "http", "pdf", "vs", "tot", "ltd"] {
+            XCTAssertEqual(det.decideWord(Keys.codes(w), active: "en"), "en", w)
+        }
+        for (keys, w) in [("her", "рук"), ("key", "лун")] {
+            XCTAssertEqual(det.decideWord(Keys.codes(keys), active: "ru"), "ru", w)
+        }
+        // Protection is for the active language only: typed in the other layout, they are
+        // still candidates for a fix.
+        XCTAssertEqual(det.decideWord(Keys.codes("hello"), active: "ru"), "en")
     }
 
     func testPunctuationInActiveLayoutSwitchesOnlyToAKnownWord() {
@@ -105,14 +118,14 @@ final class DetectorTests: XCTestCase {
     func testDecisionSpeed() {
         let words = ["ghbdtn", "hello", "cgfcb,j", "kubectl", "insarov", "rjvgm.nth"].map(Keys.codes)
         let n = 2000
-        let start = Date()
+        let start = DispatchTime.now().uptimeNanoseconds
         var sink = 0
         for i in 0..<n {
             let keys = words[i % words.count]
             if det.decideWord(keys, active: "en") != nil { sink += 1 }
             if det.firstPrefixSwitch(keys, active: "en") != nil { sink += 1 }
         }
-        let perWord = Date().timeIntervalSince(start) / Double(n) * 1000
+        let perWord = Double(DispatchTime.now().uptimeNanoseconds - start) / Double(n) / 1e6
         XCTAssertLessThan(perWord, 1.0, "ms per word (whole word + every prefix), sink \(sink)")
     }
 }

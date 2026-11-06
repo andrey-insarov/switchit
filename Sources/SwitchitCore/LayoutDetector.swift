@@ -58,8 +58,14 @@ public struct LayoutDetector: Sendable {
         return out
     }
 
-    private func isKnown(_ lang: Language, _ text: String) -> Bool {
+    /// May the detector switch *to* this word of `lang`? Short words only from the curated list.
+    private func isTarget(_ lang: Language, _ text: String) -> Bool {
         text.count < Self.minModelLength ? lang.model.shortWords.contains(text) : lang.model.words.contains(text)
+    }
+
+    /// Is this a real word of `lang` that must never be switched away from while `lang` is active?
+    private func isProtected(_ lang: Language, _ text: String) -> Bool {
+        lang.model.protectedWords.contains(text)
     }
 
     /// Language the whole word was meant in, or nil.
@@ -69,24 +75,28 @@ public struct LayoutDetector: Sendable {
         if keys.count < 2 || capitals >= Self.capitalsLimit { return nil }
         let cands = candidates(keys)
         if cands.isEmpty { return nil }
-        let known = cands.map { isKnown($0.language, $0.text) }
-        if known.filter({ $0 }).count > 1 { return nil }            // a real word in both languages
-        let hits = zip(cands, known).filter { $0.1 }.map { $0.0.language.code }
+        if let a = cands.first(where: { $0.language.code == active }), isProtected(a.language, a.text) {
+            return active                                            // a real word in the active language
+        }
+        let targets = cands.filter { isTarget($0.language, $0.text) }.map { $0.language.code }
+        if targets.count > 1 { return nil }                          // a real word in more than one language
         guard cands.contains(where: { $0.language.code == active }) else {
             // A key is punctuation in the active layout (`hello,` `can't`): switch only to a
             // known word of the other language, never on the model alone.
-            return hits.count == 1 ? hits[0] : nil
+            return targets.count == 1 ? targets[0] : nil
         }
         if cands.count == 1 { return active }                        // the other layout cannot spell it
-        if keys.count < Self.minModelLength { return hits.count == 1 ? hits[0] : nil }
+        if keys.count < Self.minModelLength { return targets.count == 1 ? targets[0] : nil }
         var scored: [(code: String, score: Double)] = []
-        for (c, k) in zip(cands, known) {
+        for c in cands {
             var s = c.language.model.logP(word: c.text)
-            if k { s += Self.dictionaryBonus }
+            if targets.contains(c.language.code) { s += Self.dictionaryBonus }
+            if !s.isFinite { return nil }                            // a broken model never decides
             scored.append((c.language.code, s))
         }
         scored.sort { $0.score != $1.score ? $0.score > $1.score : $0.code < $1.code }
-        return scored[0].score - scored[1].score >= Self.wordMargin ? scored[0].code : nil
+        let margin = scored[0].score - scored[1].score
+        return margin.isFinite && margin >= Self.wordMargin ? scored[0].code : nil
     }
 
     /// Language to switch to after the latest letter, or nil. Meaningful at 3–6 letters.
@@ -95,11 +105,11 @@ public struct LayoutDetector: Sendable {
         if n < Self.prefixMin || n > Self.prefixMax || capitals >= Self.capitalsLimit { return nil }
         let cands = candidates(keys)
         guard let a = cands.first(where: { $0.language.code == active }) else { return nil }
-        if a.language.model.wordsStarting(with: a.text) > 0 { return nil }   // still a possible start here
+        if a.language.model.wordsStarting(with: a.text) > 0 { return nil }   // still a possible start here (a protected word's prefix included)
         for o in cands where o.language.code != active {
             if o.language.model.wordsStarting(with: o.text) < Self.prefixSupport { continue }
             let margin = o.language.model.logP(prefix: o.text) - a.language.model.logP(prefix: a.text)
-            if margin < Self.prefixMargin { continue }
+            if !margin.isFinite || margin < Self.prefixMargin { continue }
             return o.language.code
         }
         return nil

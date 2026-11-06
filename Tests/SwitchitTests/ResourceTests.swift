@@ -18,14 +18,27 @@ final class ResourceTests: XCTestCase {
             XCTAssertGreaterThan(m.words.count, 30_000, lang)
             XCTAssertGreaterThan(m.shortWords.count, 80, lang)
             XCTAssertTrue(m.shortWords.allSatisfy { $0.count <= 3 }, "\(lang): short list holds 2–3 letter words only")
+            XCTAssertGreaterThan(m.protectedWords.count, m.shortWords.count, "\(lang): protected = short ∪ curated ∪ long words")
         }
     }
 
     func testModelFilesCarryTheReferenceHeader() throws {
         for lang in ["en", "ru"] {
-            let first = try String(contentsOf: resource("model-\(lang)"), encoding: .utf8).prefix(while: { $0 != "\n" })
-            XCTAssertEqual(first, "switchit-model\t1", "written by Scripts/export_model.py, not by hand")
+            let lines = try String(contentsOf: resource("model-\(lang)"), encoding: .utf8).split(separator: "\n")
+            XCTAssertEqual(lines[0], "switchit-model\t1", "written by Scripts/export_model.py, not by hand")
+            XCTAssertTrue(lines[4].hasPrefix("records\t"))
+            XCTAssertEqual(Int(lines[4].dropFirst(8)), lines.count - 5, "\(lang): record count matches the file")
         }
+    }
+
+    func testCuratedListsAreInTheModel() throws {
+        // Data/short-*.txt and Data/protect-*.txt are the sources; export_model.py copies them in.
+        let en = try LanguageModel.load(language: "en")
+        XCTAssertTrue(en.shortWords.isSuperset(of: ["the", "and", "ok", "he"]))
+        XCTAssertTrue(en.protectedWords.isSuperset(of: ["vs", "tot", "dj", "ye", "cctv", "http", "pdf", "ltd"]))
+        let ru = try LanguageModel.load(language: "ru")
+        XCTAssertTrue(ru.shortWords.isSuperset(of: ["да", "нет", "вы", "ты", "при"]))
+        XCTAssertTrue(ru.protectedWords.isSuperset(of: ["рук", "лун", "ввс"]))
     }
 
     func testDictionaryHasNoJunk() throws {
