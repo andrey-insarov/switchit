@@ -9,6 +9,33 @@ Automatic layout switching when a word was typed in the wrong layout (ru/en firs
 the word already typed, manual correction by hot key, per-application exclusions, menu bar, login
 item. No cloud, no account, no analytics in the app.
 
+## Features beyond layout switching (requested 6 Nov)
+
+All word-level corrections run as **one pipeline of rules** at a word boundary — layout → typos → ё —
+sharing the correction planner, the undo (Backspace / ⌘Z right after a correction), the exclusions
+and the sounds. Each rule has its own switch; an undo puts the word on that rule's "leave alone"
+list. Only one rewrite per word per pass; a rule never fires on a word another rule just produced.
+
+- **Typos** (ru, en): a curated table of common misspellings, wrong → right, high confidence only —
+  not a spell checker. Applied only when the typed word is not a dictionary word and the table entry
+  is unambiguous. The table ships as a read-only resource; its data source needs a licence check
+  (share-alike lists cannot go into the bundle as is). macOS's own autocorrect works only in Cocoa
+  text views; ours works everywhere, so the two must not fight: skip when the system has just
+  replaced the word.
+- **ё** (ru): е → ё only for words where the replacement is unambiguous (ёлка, ещё); ambiguous pairs
+  (все / всё, небо / нёбо) are left alone. Dictionary source needs a licence check. Off by default
+  until the table is proven on the bench.
+- **Program exclusions**: per application (bundle id) — nothing is corrected there; defaults include
+  terminals and IDEs. Pick from running apps or from /Applications.
+- **Word exclusions**: an editable, visible list (add, remove, search, which rule it applies to),
+  the same lists the undo fills. Exported and imported with `.switchit`.
+- **Sounds**: a sound on layout switch and on a typo fix, separately; system sounds or a file the
+  user picks (a picked file is external input: bounded read, audio type checked; in the App Store
+  edition a security-scoped bookmark). Off by default.
+
+Settings panes: General / Shortcuts / Languages / Typos / ё / Exclusions (Programs, Words) / Sounds /
+Advanced.
+
 ## Two editions (decided 6 Nov)
 
 One code base, a build flag `SWITCHIT_APPSTORE`, the same way Keepit has `KEEPIT_APPSTORE`:
