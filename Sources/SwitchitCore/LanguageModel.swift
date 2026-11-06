@@ -55,8 +55,13 @@ public final class LanguageModel: Sendable {
 
     // MARK: Loading
 
-    /// Loads the model for `language` from `bundle` (the module bundle by default).
-    public static func load(language: String, bundle: Bundle = .module) throws -> LanguageModel {
+    /// Loads the model for `language` from the module's resources.
+    public static func load(language: String) throws -> LanguageModel {
+        try load(language: language, bundle: .module)
+    }
+
+    /// Loads the model for `language` from any bundle (tests point this at a temporary folder).
+    public static func load(language: String, bundle: Bundle) throws -> LanguageModel {
         guard let modelURL = bundle.url(forResource: "model-\(language)", withExtension: "txt") else {
             throw Failure.resourceMissing("model-\(language).txt")
         }
