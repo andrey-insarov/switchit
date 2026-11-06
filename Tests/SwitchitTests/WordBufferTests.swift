@@ -51,7 +51,7 @@ final class WordBufferTests: XCTestCase {
 
     func testEscapeDropsWord() {
         var buffer = WordBuffer(wordKeys: wordKeys)
-        XCTAssertEqual(type([.o, .k, .escape], into: &buffer).last, .none)
+        XCTAssertEqual(type([.o, .k, .escape], into: &buffer).last, WordBuffer.Event.none)
         XCTAssertTrue(buffer.isEmpty)
     }
 
