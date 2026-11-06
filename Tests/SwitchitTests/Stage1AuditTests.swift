@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import XCTest
 @testable import SwitchitCore
@@ -30,7 +31,22 @@ final class Stage1AuditTests: XCTestCase {
             lines.append("u\t\(c)\t1.0"); uni[c] = 1.0
         }
         let sum = total ?? "\(uni.values.reduce(0, +))"
-        return "switchit-model\t1\nlang\t\(lang)\nalphabet\t\(alphabet)\ntotal\t\(sum)\nrecords\t\(lines.count)\n" + lines.joined(separator: "\n") + "\n"
+        let body = lines.map { $0 + "\n" }.joined()
+        return "switchit-model\t1\nlang\t\(lang)\nalphabet\t\(alphabet)\ntotal\t\(sum)\nrecords\t\(lines.count)\nsha256\t\(Self.digest(body))\n" + body
+    }
+
+    static func digest(_ body: String) -> String {
+        SHA256.hash(data: Data(body.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Rewrites `records` and `sha256` of a model text so that only the edit under test differs.
+    static func reheaded(_ text: String) -> String {
+        var lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        if lines.last == "" { lines.removeLast() }
+        let body = lines.dropFirst(6).map { $0 + "\n" }.joined()
+        lines[4] = "records\t\(lines.count - 6)"
+        lines[5] = "sha256\t" + digest(body)
+        return lines.map { $0 + "\n" }.joined()
     }
 
     /// The bundled model with one record removed, to show that the record is what protects.
@@ -40,8 +56,7 @@ final class Stage1AuditTests: XCTestCase {
         let before = lines.count
         lines.removeAll { $0 == "\(kind)\t\(word)" }
         XCTAssertEqual(lines.count, before - 1, "\(kind)\t\(word) is in the shipped model exactly once")
-        lines[4] = "records\t\(lines.count - 5)"
-        return try LanguageModel(language: lang, modelText: lines.joined(separator: "\n") + "\n")
+        return try LanguageModel(language: lang, modelText: Self.reheaded(lines.map { $0 + "\n" }.joined()))
     }
 
     // MARK: P1 — cleaning removed the protection of vowelless abbreviations
@@ -110,15 +125,27 @@ final class Stage1AuditTests: XCTestCase {
         XCTAssertThrowsError(try model("u\ta\t1e308\nu\tb\t1e308\nu\tc\t1\nu\t$\t1\n", total: "inf"))
     }
 
-    func testP2NonFiniteMarginNeverSwitches() throws {
-        // A model cannot be built with an infinite score any more; the detector guards anyway.
-        // Two valid models whose prefix scores are equal give margin 0 → no switch.
-        let a = try model("w\taaab\nw\taaac\nw\taaad\nw\taaae\nw\taaaf\n", alphabet: "abcdef")
+    func testP2PrefixMarginGuardIsReached() throws {
+        // Round 2 (auditor's P3): the earlier version of this test exited at the active-prefix rule
+        // before any number was compared. Here the active model has no words at all, the other
+        // has five starting with the typed prefix, and both score the prefix identically — so the
+        // decision rests on the margin alone, which is 0 and must not switch. Removing the margin
+        // check makes this fail (the auditor verified by mutation).
+        let a = try model("", alphabet: "abcdef")
         let b = try model("w\taaab\nw\taaac\nw\taaad\nw\taaae\nw\taaaf\n", alphabet: "abcdef", language: "ru")
+        XCTAssertEqual(a.wordsStarting(with: "aaa"), 0)
+        XCTAssertEqual(b.wordsStarting(with: "aaa"), 5)
+        XCTAssertEqual(a.logP(prefix: "aaa"), b.logP(prefix: "aaa"))
         let d = LayoutDetector(languages: [.init(code: "en", layout: .usEnglish, model: a),
                                            .init(code: "ru", layout: .usEnglish, model: b)])
         XCTAssertNil(d.decidePrefix(Keys.codes("aaa"), active: "en"))
-        XCTAssertNotEqual(d.decideWord(Keys.codes("aaab"), active: "en"), "ru", "a real word in the active language stays")
+        // And the whole-word margin: the same two models, "aaab" is a target in ru only, so ru
+        // gets the dictionary bonus (1.5 ≥ margin 1.0) and wins; without the bonus the scores tie.
+        XCTAssertEqual(d.decideWord(Keys.codes("aaab"), active: "en"), "ru")
+        let c = try model("", alphabet: "abcdef", language: "ru")
+        let tie = LayoutDetector(languages: [.init(code: "en", layout: .usEnglish, model: a),
+                                             .init(code: "ru", layout: .usEnglish, model: c)])
+        XCTAssertNil(tie.decideWord(Keys.codes("aaab"), active: "en"), "equal scores, no bonus: margin 0")
     }
 
     // MARK: P2 — a truncated resource must not load
@@ -127,23 +154,37 @@ final class Stage1AuditTests: XCTestCase {
         let full = Self.text("u\ta\t4\nu\tb\t3\nu\tc\t3\nu\t$\t1\nw\tabc\n")
         XCTAssertNoThrow(try LanguageModel(language: "en", modelText: full))
         // Header only (records says 0, but no unigrams): incomplete.
-        XCTAssertThrowsError(try LanguageModel(language: "en", modelText: "switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t10\nrecords\t0\n")) { e in
+        XCTAssertThrowsError(try LanguageModel(language: "en", modelText: Self.reheaded("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t10\nrecords\t0\nsha256\t-\n"))) { e in
             XCTAssertEqual(e as? LanguageModel.Failure, .incompleteUnigrams)
         }
-        // Cut anywhere after the header: the record count disagrees.
+        // Cut at any line boundary after the header: the record count disagrees.
         let lines = full.split(separator: "\n").map(String.init)
-        for cut in 5..<lines.count {
-            let text = lines[..<cut].joined(separator: "\n") + "\n"
-            XCTAssertThrowsError(try LanguageModel(language: "en", modelText: text), "cut at \(cut)") { e in
+        for cut in 6..<lines.count {
+            let text = lines[..<cut].map { $0 + "\n" }.joined()
+            XCTAssertThrowsError(try LanguageModel(language: "en", modelText: text), "cut at line \(cut)") { e in
                 guard case .recordCountMismatch = e as? LanguageModel.Failure else { return XCTFail("cut at \(cut): \(e)") }
             }
         }
-        // One record too many is the same error.
+        // Cut inside the last line, at every character (round 2): no trailing LF → refused at
+        // once; with a LF put back, the count is right but the hash is not.
+        for cut in 1..<lines.last!.count {
+            let short = lines.dropLast().map { $0 + "\n" }.joined() + String(lines.last!.prefix(cut))
+            XCTAssertThrowsError(try LanguageModel(language: "en", modelText: short), "cut inside last line at \(cut)") { e in
+                XCTAssertEqual(e as? LanguageModel.Failure, .badHeader, "no trailing newline")
+            }
+            XCTAssertThrowsError(try LanguageModel(language: "en", modelText: short + "\n")) { e in
+                XCTAssertEqual(e as? LanguageModel.Failure, .digestMismatch)
+            }
+        }
+        // One record too many is a count error; one record changed in place is a hash error.
         XCTAssertThrowsError(try LanguageModel(language: "en", modelText: full + "w\tcab\n")) { e in
             guard case .recordCountMismatch = e as? LanguageModel.Failure else { return XCTFail("\(e)") }
         }
-        // A missing unigram with a correct count is caught too.
-        XCTAssertThrowsError(try LanguageModel(language: "en", modelText: "switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t7\nrecords\t2\nu\ta\t4\nu\tb\t3\n")) { e in
+        XCTAssertThrowsError(try LanguageModel(language: "en", modelText: full.replacingOccurrences(of: "w\tabc\n", with: "w\tabb\n"))) { e in
+            XCTAssertEqual(e as? LanguageModel.Failure, .digestMismatch)
+        }
+        // A missing unigram with a correct count and hash is caught too.
+        XCTAssertThrowsError(try LanguageModel(language: "en", modelText: Self.reheaded("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t7\nrecords\t0\nsha256\t-\nu\ta\t4\nu\tb\t3\n"))) { e in
             XCTAssertEqual(e as? LanguageModel.Failure, .incompleteUnigrams)
         }
     }
@@ -194,7 +235,7 @@ final class Stage1AuditTests: XCTestCase {
         XCTAssertThrowsError(try model("u\ta\t1\nu\ta\t2\n"))
         XCTAssertThrowsError(try model("w\tz\n"))
         XCTAssertThrowsError(try model("", alphabet: "aabc"))
-        XCTAssertThrowsError(try LanguageModel(language: "en", modelText: "switchit-model\t1\nlang\ten\nw\tabc\nalphabet\tabc\ntotal\t1\nrecords\t0\n"))
+        XCTAssertThrowsError(try LanguageModel(language: "en", modelText: "switchit-model\t1\nlang\ten\nw\tabc\nalphabet\tabc\ntotal\t1\nrecords\t0\nsha256\t-\n"))
         XCTAssertNoThrow(try model("u\ta\t-0\n"))   // -0 is numerically zero; no finding.
         XCTAssertThrowsError(try model("s\tabcd\n"))  // a short record must be short
         for action in [KeyCode.leftArrow, .rightArrow, .upArrow, .downArrow] {

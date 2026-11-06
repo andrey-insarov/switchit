@@ -46,19 +46,23 @@ final class LanguageModelTests: XCTestCase {
     }
 
     func testRefusesWrongHeaderAndMissingFields() {
-        XCTAssertThrowsError(try raw("switchit-model\t2\nlang\ten\nalphabet\tabc\ntotal\t1.0\nrecords\t0\n"))
-        XCTAssertThrowsError(try raw("lang\ten\nalphabet\tabc\ntotal\t1.0\nrecords\t0\n"))
-        XCTAssertThrowsError(try raw("switchit-model\t1\nalphabet\tabc\ntotal\t1.0\nrecords\t0\n"))        // no lang
-        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\ntotal\t1.0\nrecords\t0\n"))             // no alphabet
-        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\nrecords\t0\n"))          // no total
-        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t1.0\n"))          // no records
-        XCTAssertThrowsError(try raw("switchit-model\t1\nalphabet\tabc\nlang\ten\ntotal\t1.0\nrecords\t0\n"))  // wrong order
+        let sha = "sha256\t" + Stage1AuditTests.digest("") + "\n"
+        XCTAssertThrowsError(try raw("switchit-model\t2\nlang\ten\nalphabet\tabc\ntotal\t1.0\nrecords\t0\n" + sha))
+        XCTAssertThrowsError(try raw("lang\ten\nalphabet\tabc\ntotal\t1.0\nrecords\t0\n" + sha))
+        XCTAssertThrowsError(try raw("switchit-model\t1\nalphabet\tabc\ntotal\t1.0\nrecords\t0\n" + sha))        // no lang
+        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\ntotal\t1.0\nrecords\t0\n" + sha))             // no alphabet
+        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\nrecords\t0\n" + sha))          // no total
+        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t1.0\n" + sha))          // no records
+        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t1.0\nrecords\t0\n"))  // no sha256
+        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t1.0\nrecords\t0\nsha256\tnothex\n"))
+        XCTAssertThrowsError(try raw("switchit-model\t1\nalphabet\tabc\nlang\ten\ntotal\t1.0\nrecords\t0\n" + sha))  // wrong order
         XCTAssertThrowsError(try raw(""))
+        XCTAssertThrowsError(try raw(String(Stage1AuditTests.text("w\tabc\n").dropLast())), "no trailing newline")
     }
 
     func testRefusesNonFiniteTotal() {
         for t in ["inf", "nan", "0", "-1", "1e999", "x"] {
-            XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t" + t + "\nrecords\t1\nu\ta\t1.0\n"), t)
+            XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t" + t + "\nrecords\t1\nsha256\t" + Stage1AuditTests.digest("u\ta\t1.0\n") + "\nu\ta\t1.0\n"), t)
         }
     }
 
@@ -104,7 +108,7 @@ final class LanguageModelTests: XCTestCase {
 
     func testRefusesTooManyRecords() {
         // Declared count over the limit is refused at the header, before anything is read.
-        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t1.0\nrecords\t\(LanguageModel.maxRecords + 1)\n")) { e in
+        XCTAssertThrowsError(try raw("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t1.0\nrecords\t\(LanguageModel.maxRecords + 1)\nsha256\t" + Stage1AuditTests.digest("") + "\n")) { e in
             XCTAssertEqual(e as? LanguageModel.Failure, .badHeader)
         }
     }

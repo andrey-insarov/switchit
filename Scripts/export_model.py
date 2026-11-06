@@ -19,6 +19,7 @@ Model file format, UTF-8, one record per line, fields separated by a single tab:
   alphabet<TAB>abc…                   the letters, no separators (lower-case letters only)
   total<TAB><float>                   sum of all unigram weights
   records<TAB><int>                   number of record lines that follow — exactly
+  sha256<TAB><hex>                    SHA-256 of the record lines (each with its LF), UTF-8
   u<TAB><c><TAB><float>               unigram weight of character c (a letter or $)
   b<TAB><x><c><TAB><float>            weight of c after context x (x: a letter or ^)
   t<TAB><x><y><c><TAB><float>         weight of c after context xy
@@ -26,11 +27,14 @@ Model file format, UTF-8, one record per line, fields separated by a single tab:
   s<TAB><word>                        a curated short word (2–3 letters): correction target
   p<TAB><word>                        a curated protected word: never switched away from
 
-The five header lines come first, in this order; then exactly `records` record lines. `^` is the
-start-of-word padding, `$` the end of word. Floats are Python repr (round-trip exact). The loader
-(LanguageModel.swift) refuses anything else — a truncated or edited file must not load.
+The six header lines come first, in this order; then exactly `records` record lines, each ended
+by LF. `^` is the start-of-word padding, `$` the end of word. Floats are Python repr (round-trip
+exact). The loader (LanguageModel.swift) refuses anything else: the count catches a missing or
+extra line, the hash catches a cut inside the last line and any edit of the records (auditor's
+stage-1 round 2, 6 Nov 2026).
 """
 import argparse
+import hashlib
 import os
 import sys
 
@@ -63,8 +67,10 @@ def write_model(d, path):
     # The total is re-derived from the written unigrams so that the loader's sum check is exact
     # up to float ordering, whatever rounding happened in training.
     total = sum(m.uni.values())
+    body = "".join(r + "\n" for r in records)
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
     lines = ["switchit-model\t1", f"lang\t{d.lang}", f"alphabet\t{alphabet}", f"total\t{total!r}",
-             f"records\t{len(records)}"] + records
+             f"records\t{len(records)}", f"sha256\t{digest}"] + records
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
     return len(lines)

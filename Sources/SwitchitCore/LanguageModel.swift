@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// Everything the detector knows about one language: the character n-gram model, the dictionary
@@ -19,6 +20,8 @@ public final class LanguageModel: Sendable {
         case tooManyRecords
         /// The `records` header says one number of records, the file holds another: truncated or edited.
         case recordCountMismatch(declared: Int, found: Int)
+        /// The records do not hash to the `sha256` header: cut inside a line, or edited.
+        case digestMismatch
         /// `total` does not equal the sum of the unigram weights.
         case totalMismatch
         /// A letter of the alphabet (or the end-of-word symbol) has no unigram record.
@@ -92,12 +95,12 @@ public final class LanguageModel: Sendable {
 
     /// Parses the file. Internal so tests can feed malformed text.
     init(language: String, modelText: String) throws {
-        var lines = modelText.split(separator: "\n", omittingEmptySubsequences: false)[...]
-        // Only the trailing newline may leave an empty line, and only at the end.
-        while lines.last == "" { lines = lines.dropLast() }
-        guard lines.count >= 5 else { throw Failure.badHeader }
+        // Every line, the last one included, ends with LF: a file cut inside its last line has none.
+        guard modelText.hasSuffix("\n") else { throw Failure.badHeader }
+        let lines = modelText.dropLast().split(separator: "\n", omittingEmptySubsequences: false)[...]
+        guard lines.count >= 6 else { throw Failure.badHeader }
 
-        // Header: five lines, fixed order.
+        // Header: six lines, fixed order.
         guard lines[lines.startIndex] == "switchit-model\t1" else { throw Failure.badHeader }
         func headerField(_ i: Int, _ key: String) throws -> Substring {
             let f = lines[lines.startIndex + i].split(separator: "\t", omittingEmptySubsequences: false)
@@ -110,6 +113,8 @@ public final class LanguageModel: Sendable {
         guard let declared = Int(try headerField(4, "records")), declared >= 0, declared <= Self.maxRecords else {
             throw Failure.badHeader
         }
+        let digest = try headerField(5, "sha256")
+        guard digest.count == 64, digest.allSatisfy({ $0.isHexDigit && !$0.isUppercase }) else { throw Failure.badHeader }
         guard lang == language else { throw Failure.languageMismatch(expected: language, found: lang) }
 
         // Alphabet: lower-case letters, unique, no padding symbols, no controls.
@@ -121,8 +126,16 @@ public final class LanguageModel: Sendable {
             }
         }
 
-        let records = lines.dropFirst(5)
+        let records = lines.dropFirst(6)
         guard records.count == declared else { throw Failure.recordCountMismatch(declared: declared, found: records.count) }
+        // The hash is over the record lines exactly as written (each with its LF): a cut inside
+        // the last line, a changed letter, a reordered line — none of them load.
+        var hasher = SHA256()
+        for r in records {
+            hasher.update(data: Data(r.utf8))
+            hasher.update(data: Data([0x0A]))
+        }
+        guard hasher.finalize().map({ String(format: "%02x", $0) }).joined() == digest else { throw Failure.digestMismatch }
 
         var unigram: [Character: Double] = [:]
         var bigram: [String: Row] = [:]
@@ -130,7 +143,7 @@ public final class LanguageModel: Sendable {
         var words: Set<String> = []
         var short: Set<String> = []
         var protect: Set<String> = []
-        var lineNo = 5
+        var lineNo = 6
 
         func checkWord(_ w: Substring, _ bad: () -> Failure) throws -> String {
             guard !w.isEmpty, w.count <= Self.maxWordLength else { throw bad() }

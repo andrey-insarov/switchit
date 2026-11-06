@@ -27,7 +27,8 @@ final class ResourceTests: XCTestCase {
             let lines = try String(contentsOf: resource("model-\(lang)"), encoding: .utf8).split(separator: "\n")
             XCTAssertEqual(lines[0], "switchit-model\t1", "written by Scripts/export_model.py, not by hand")
             XCTAssertTrue(lines[4].hasPrefix("records\t"))
-            XCTAssertEqual(Int(lines[4].dropFirst(8)), lines.count - 5, "\(lang): record count matches the file")
+            XCTAssertTrue(lines[5].hasPrefix("sha256\t"))
+            XCTAssertEqual(Int(lines[4].dropFirst(8)), lines.count - 6, "\(lang): record count matches the file")
         }
     }
 
