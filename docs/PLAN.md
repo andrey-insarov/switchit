@@ -114,14 +114,24 @@ Settings panes: see Interface above.
 
 ## Detector rules for 1.0 (reference: `Scripts/detector_proto.py`)
 
-- Words shorter than 4 letters are decided only by the hand-curated lists
-  `Sources/SwitchitCore/Resources/short-{ru,en}.txt`.
+- Words shorter than 4 letters are decided only by the hand-curated lists `Data/short-{ru,en}.txt`.
+- **A real word of the active language is never switched away** (auditor's P1, 6 Nov):
+  protected = the short list ∪ `Data/protect-<lang>.txt` ∪ dictionary words of 4+ letters. The
+  curated protect list holds short real words the raw frequency list cannot vouch for (its
+  2-letter entries are subtitle junk — `lf`, `ds`, `ns` — and would block `да`, `вы`, `ты`) and
+  vowelless abbreviations the cleaning removes (`cctv`, `http`, `pdf`, `ltd`). Prefix counts
+  include protected words, so `pdf` also blocks the 3rd-letter switch. Trade-off: `vs`, `tot`,
+  `dj`, `ye`, `рук`, `лун` are protected, so `мы`, `еще`, `во`, `ну`, `her`, `key` typed in the
+  wrong layout need the manual shortcut.
 - A word known in both languages is left alone.
 - If a key of the word is punctuation in the active layout (`hello,` `can't` `end.`), switch only
   to a dictionary word of the other language, never on the model alone.
 - Words with two or more capitals (abbreviations, `iPhone`) are left alone.
-- Bench, 19 000 held-out words typed in the right layout: 0.064 % (en) / 0.062 % (ru) false
-  switches at the boundary; typed in the wrong layout: 92.9 % of English and 63.1 % of Russian words
+- A decision is made only of finite numbers; a model that is incomplete, truncated, or whose
+  weights do not add up does not load (`records` count, unigram coverage, `total` = Σ unigrams,
+  finite row sums, letters-only alphabet — auditor's P2).
+- Bench, 19 000 held-out words typed in the right layout: 0.032 % (en) / 0.042 % (ru) false
+  switches at the boundary; typed in the wrong layout: 93.1 % of English and 63.3 % of Russian words
   fixed at the boundary (Russian ones are mostly caught earlier, mid-word).
 
 ## Two editions (decided 6 Nov)
