@@ -32,6 +32,14 @@ memory, no index. Not SQLite: the system SQLite has no encryption, row-level enc
 metadata and fragments in the journal / WAL, and SQLCipher brings third-party C crypto into the build
 and the export-compliance question. Revisit SQLCipher only if fast search across years is needed.
 
+Export to HTML (decided 6 Nov, like Telegram's chat export) is the way to search seriously: ⌘F in a
+browser, an editor, grep. Rules: only on an explicit action, never automatic or scheduled; the user
+picks the location in a save panel, after one warning that the file is not encrypted; a period and
+applications can be chosen; the warning says that in an ordinary folder Spotlight indexes the file,
+Time Machine keeps a copy, and a synced folder (iCloud Drive, Dropbox) uploads it; one self-contained
+HTML file with no external links or scripts, grouped by day and application with anchors. A
+password-protected zip is optional (open decision).
+
 ## macOS mechanisms it builds on
 
 - **Key interception**: `CGEvent.tapCreate` (session tap, head insert) for `keyDown` /
