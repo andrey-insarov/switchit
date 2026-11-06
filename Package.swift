@@ -11,7 +11,9 @@ let package = Package(
         // the real input sources and the event tap live in the app target only.
         .target(
             name: "SwitchitCore",
-            path: "Sources/SwitchitCore"
+            path: "Sources/SwitchitCore",
+            // model-<lang>.txt and short-<lang>.txt, written by Scripts/export_model.py.
+            resources: [.process("Resources")]
         ),
         .executableTarget(
             name: "Switchit",
@@ -25,7 +27,9 @@ let package = Package(
         .testTarget(
             name: "SwitchitTests",
             dependencies: ["SwitchitCore"],
-            path: "Tests/SwitchitTests"
+            path: "Tests/SwitchitTests",
+            // golden.tsv: decisions of the Python reference; GoldenTests opens it by path.
+            exclude: ["Fixtures"]
         ),
     ]
 )

@@ -1,0 +1,30 @@
+# Protected Russian words: typed while the Russian layout is active, these are never switched.
+# See protect-en.txt for the two kinds of entry. Cost of the short ones: her → рук and key → лун
+# need the manual shortcut when typed in the wrong layout.
+рук
+лун
+ввс
+ндс
+спб
+мвд
+фсб
+вмф
+нтв
+стс
+тнт
+мгу
+мфти
+кпрф
+гкчп
+мхт
+тв
+св
+км
+кг
+мм
+см
+мл
+мг
+др
+тд
+тп

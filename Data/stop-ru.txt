@@ -1,0 +1,2 @@
+# Entries removed from the Russian frequency list before the model and dictionary are built.
+# (See stop-en.txt.) Nothing needed yet beyond the junk rules; kept so the loader has one path.

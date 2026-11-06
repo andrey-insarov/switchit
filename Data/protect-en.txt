@@ -1,0 +1,104 @@
+# Protected English words: typed while the English layout is active, these are never switched,
+# whatever the model says. Two kinds of entry, both hand-curated (auditor's P1 findings, 6 Nov):
+#
+# 1. Short real words (2–3 letters) that the raw frequency list cannot vouch for — the list's
+#    2-letter entries are mostly subtitle junk (lf, ns, ds), so protection below 4 letters comes
+#    from this file and short-en.txt only. Cost: the Russian word on the same keys needs the manual
+#    shortcut when typed in the wrong layout (vs → мы, tot → еще, dj → во, ye → ну).
+# 2. Abbreviations without a vowel, which the dictionary cleaning removes from the training list
+#    (no vowel = junk) and which therefore lost their protection (cctv → ссем, http → реез).
+#
+# One lower-case word per line; # starts a comment.
+vs
+tot
+dj
+ye
+cctv
+http
+https
+html
+css
+php
+sql
+xml
+svg
+png
+jpg
+gif
+pdf
+txt
+rtf
+csv
+tsv
+yml
+pkg
+dmg
+cmd
+ctrl
+src
+dst
+tmp
+ssh
+ftp
+dns
+tcp
+udp
+vpn
+ssl
+tls
+cpu
+gpu
+ssd
+hdd
+usb
+lcd
+rgb
+cmyk
+gps
+sms
+mms
+pgp
+gpg
+gnu
+npm
+js
+ts
+css
+cli
+gdp
+nyc
+bbc
+cnn
+fbi
+cia
+nsa
+dvd
+bmw
+tv
+ps
+pc
+pm
+mr
+mrs
+ms
+dr
+st
+ft
+lb
+kg
+km
+cm
+mm
+hz
+db
+hp
+qr
+hr
+pr
+ltd
+llc
+plc
+inc
+corp
+dept
+mgmt
