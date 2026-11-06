@@ -49,6 +49,12 @@ final class LanguageModelTests: XCTestCase {
         XCTAssertThrowsError(try load("switchit-model\t1\nlang\ten\nalphabet\tabc"))          // no total
     }
 
+    func testRefusesNonFiniteTotal() {
+        for t in ["inf", "nan", "0", "-1", "1e999"] {
+            XCTAssertThrowsError(try load("switchit-model\t1\nlang\ten\nalphabet\tabc\ntotal\t" + t + "\nu\ta\t1.0"), t)
+        }
+    }
+
     func testRefusesLanguageMismatch() {
         XCTAssertThrowsError(try load(good, language: "ru")) { e in
             XCTAssertEqual(e as? LanguageModel.Failure, .languageMismatch(expected: "ru", found: "en"))
@@ -62,6 +68,10 @@ final class LanguageModelTests: XCTestCase {
             ("duplicate unigram", "u\ta\t1.0"),
             ("negative weight", "u\tb\t-1"),
             ("non-numeric weight", "u\tb\tnan?"),
+            ("infinite weight", "u\tb\tinf"),              // Double("inf") parses; must still be refused
+            ("negative infinite weight", "b\tab\t-inf"),
+            ("nan weight", "t\t^^b\tnan"),
+            ("infinite total", "total\tinf"),
             ("bigram with wrong length", "b\tabc\t1.0"),
             ("bigram context outside alphabet", "b\tza\t1.0"),
             ("trigram with wrong length", "t\tab\t1.0"),

@@ -110,16 +110,16 @@ public final class LanguageModel: Sendable {
                 alphabet = Set(f[1])
                 guard alphabet.count == f[1].count else { throw bad() }
             case "total":
-                guard f.count == 2, total == nil, let v = Double(f[1]), v > 0 else { throw bad() }
+                guard f.count == 2, total == nil, let v = Double(f[1]), v.isFinite, v > 0 else { throw bad() }
                 total = v
             case "u":
-                guard f.count == 3, f[1].count == 1, let v = Double(f[2]), v >= 0 else { throw bad() }
+                guard f.count == 3, f[1].count == 1, let v = Double(f[2]), v.isFinite, v >= 0 else { throw bad() }
                 let c = f[1].first!
                 guard c == Self.eos || alphabet.contains(c), unigram[c] == nil else { throw bad() }
                 unigram[c] = v
             case "b", "t":
                 let n = f[0] == "b" ? 2 : 3
-                guard f.count == 3, f[1].count == n, let v = Double(f[2]), v >= 0 else { throw bad() }
+                guard f.count == 3, f[1].count == n, let v = Double(f[2]), v.isFinite, v >= 0 else { throw bad() }
                 let chars = Array(f[1])
                 let context = String(chars.dropLast())
                 let c = chars.last!
