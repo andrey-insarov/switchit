@@ -33,6 +33,15 @@ list. Only one rewrite per word per pass; a rule never fires on a word another r
   user picks (a picked file is external input: bounded read, audio type checked; in the App Store
   edition a security-scoped bookmark). Off by default.
 
+- **Correct on** (General, any combination): Space, Tab, Return, and a configurable shortcut.
+  Space, Tab and Return are word boundaries that fire the automatic pipeline; a boundary that is
+  switched off still ends the word, but nothing is corrected automatically (the shortcut still
+  works). The tap **holds the boundary key**, applies the correction, then posts the key — otherwise
+  Return would send a message before it is fixed. The shortcut corrects the last word (or the
+  selection) on demand: any key combination, or a double tap of a modifier (double Shift, as in
+  Punto). Defaults: Space and Return on, Tab off (Tab is completion in terminals and IDEs), shortcut
+  set. `WordBuffer` already reports the terminator; the trigger set is a filter on it.
+
 Settings panes: General / Shortcuts / Languages / Typos / ё / Exclusions (Programs, Words) / Sounds /
 Advanced.
 
