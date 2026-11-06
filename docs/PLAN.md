@@ -34,17 +34,27 @@ Input: the virtual key codes of the current word (layout-independent). For each 
 candidate string comes from `UCKeyTranslate`; in tests from table maps (US, Russian, Russian – PC)
 without Carbon.
 
-Scoring: log-likelihood under character n-grams of the layout's language (bigrams + trigrams; models
-trained by a script from a permissively licensed corpus; the model ships as a binary resource, the
-script lives in the repo), a bonus for a dictionary word, a penalty for impossible sequences. The
-decision fires only when the gap between candidates exceeds a threshold **and** the word is longer
-than a minimum; a word ends at space / punctuation / Return. User exclusions (words, applications)
-are checked before the model. A manual correction by the user is a training signal (the word goes
-into a local list).
+Scoring: interpolated character trigram / bigram / unigram models per language, average
+log-probability per character, trained by `Scripts/detector_proto.py` from frequency lists (the
+model ships as a binary resource; the script lives in the repo). Bench result (6 Nov, every 5th
+word held out, 19 000 words): 4 letters 87–91 % recognised with 6 false switches in 1 443;
+5 letters 93–95 %, none; 6+ letters 97–99 %, none.
 
-All of this is `SwitchitCore`: pure Swift, no AppKit, covered by a table of examples —
-`ghbdtn` → `привет`, `руддщ` → `hello`, words that are valid in both layouts, abbreviations,
-URLs / e-mail (leave alone), passwords (secure input), digits and punctuation inside a word.
+Decision rules:
+1. Words shorter than 4 letters are decided by a hand-curated dictionary of short words only;
+   longer words by the models, with a margin of 1.0 (average log-prob per character).
+2. A word that exists in more than one language (`keys` / `луны`) is left alone.
+3. User exclusions (words, applications) are checked before the model.
+4. Sentence context (`SentenceContext`): the language of the previous one or two words shifts the
+   thresholds. Stores nothing.
+5. Personal lists are the only learning: an automatic switch undone at once by the user
+   (Backspace, ⌘Z, the undo hot key) puts the word on the "leave alone" list; a manual correction
+   of a word we left alone puts it on the "always" list. Both lists are visible and editable in
+   Settings → Exclusions.
+6. **No adaptive model trained on what the user types** — decided 6 Nov. It would mean keeping
+   statistics of everything typed, in a file on disk that changes the text the app itself types
+   into other applications: an attack surface and an audit subject. No neural models either; the
+   trigrams are enough.
 
 ## Stages — one stage = one branch / PR, tests, auditor
 
