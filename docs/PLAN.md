@@ -9,6 +9,37 @@ Automatic layout switching when a word was typed in the wrong layout (ru/en firs
 the word already typed, manual correction by hot key, per-application exclusions, menu bar, login
 item. No cloud, no account, no analytics in the app.
 
+## Behaviour while typing (specified by Andrey 6 Nov) — the reference
+
+1. **Switch mid-word, from the 3rd letter.** Layout is English, the user types `Ghb`. As soon as
+   the prefix is clearly Russian, Switchit replaces it with `При`, plays the *switch* sound and
+   switches the layout, so the user keeps typing the rest of the word in Russian. Rule (bench
+   `Scripts/prefix_bench.py`): the prefix in the active language is not the start of any dictionary
+   word, the prefix in the other language starts at least 5 dictionary words, and the model margin
+   on the prefix is ≥ 1.0. Held-out words: false mid-word switches 0.07 % typing English, 0.01 %
+   typing Russian (mostly abbreviations and names: `ltd`, `kfc`, `gecko`); 65 % (EN layout) and
+   76 % (RU layout) of wrong-layout words are caught at the 3rd letter. What is not caught
+   mid-word goes to the whole-word decision at the boundary (rules above).
+2. **Undo with the switch shortcut.** Right after an automatic switch, the shortcut (default:
+   **right Option** pressed and released alone) restores the typed text exactly (`Ghb`), puts the
+   layout back to what it was before the switch, plays the *undo* sound, and no further automatic
+   switch happens in that word — the user continues `un` → `Ghbun`. Otherwise the shortcut is the
+   manual conversion of the last word or of the selection (with the *switch* sound). Left Option and
+   ⌥-characters are not affected: only a press and release of right Option with no key in between.
+3. **Veto with ← or →.** If the user presses an arrow while typing a word, nothing is switched in
+   that word — neither mid-word nor at the boundary. The caret has moved, so the buffer no longer
+   matches the screen: it is dropped until the next boundary; the shortcut then converts only a
+   selection.
+4. **Offer an exception after repeated undos.** The same word undone twice within an hour or three
+   times within 24 hours → offer to add it as an exception. An exception is a **word + applications**
+   pair; the offer defaults to the current application only, and can be changed to several
+   applications or all. The offer never interrupts typing: no window that takes focus — a
+   notification / menu-bar badge, answered when the user chooses. Undo counters (word, app,
+   timestamps) are kept for 24 hours and then pruned; stored like the exclusion lists. Mid-word,
+   an exception applies to its prefixes too: if the prefix typed so far is the start of an excepted
+   word for this app, the mid-word switch waits for the boundary.
+5. **Sounds**: *switch* (automatic and manual), *undo*, *typo fixed* — each can be set or off.
+
 ## Features beyond layout switching (requested 6 Nov)
 
 All word-level corrections run as **one pipeline of rules** at a word boundary — layout → typos → ё —
