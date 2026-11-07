@@ -10,9 +10,14 @@ reflect the state?
 cd ~/Documents/switchit
 git checkout stage-2-observe
 git pull
-make app
-open Switchit.app
+make app SIGN_ID="Developer ID Application: UK Intis Telecom LTD (WQ66955SW2)"
+open Switchit.app --args --unmask-log
 ```
+
+Signing with the Developer ID keeps the Accessibility grant across rebuilds (an ad-hoc signature
+changes with every build, and macOS then treats the app as a new one). `--unmask-log` makes the
+app write the keys of decided words as public log values — for this check only; without it they
+show as `<private>`.
 
 The keyboard icon appears in the menu bar. Its first line reads **Needs Accessibility permission**.
 
@@ -30,16 +35,11 @@ grant when the app is rebuilt with a different signature — same as Keepit).
 In a second Terminal window:
 
 ```
-sudo log config --subsystem com.it.switch --mode private_data:on
 log stream --predicate 'subsystem == "com.it.switch"' --level debug
 ```
 
-The first command shows the typed keys in the log for this check (otherwise they appear as
-`<private>`). Turn it back off afterwards:
-
-```
-sudo log config --subsystem com.it.switch --mode private_data:off
-```
+(`log config --mode private_data:on` is not accepted on current macOS; the `--unmask-log` launch
+argument above does the same for this app only.)
 
 Lines to expect:
 

@@ -16,8 +16,10 @@ enum InputSources {
     static func language(for id: String) -> (code: String, layout: Layout)? {
         switch id {
         case "com.apple.keylayout.US", "com.apple.keylayout.ABC", "com.apple.keylayout.British",
-             "com.apple.keylayout.USExtended", "com.apple.keylayout.Australian",
+             "com.apple.keylayout.USExtended", "com.apple.keylayout.USInternational-PC",
+             "com.apple.keylayout.British-PC", "com.apple.keylayout.Australian",
              "com.apple.keylayout.Canadian", "com.apple.keylayout.Irish":
+            // Same letter positions as US; they differ in punctuation and dead keys only.
             return ("en", .usEnglish)
         case "com.apple.keylayout.Russian":
             return ("ru", .russian)

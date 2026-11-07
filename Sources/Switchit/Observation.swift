@@ -21,9 +21,15 @@ final class Observation {
     var onStatusChange: ((Status) -> Void)?
     /// For the menu: how many decisions of each kind since launch.
     private(set) var counts = (midWord: 0, boundary: 0, leftAlone: 0)
+    /// `--unmask-log`: write the keys of decided words as public log values, for the manual
+    /// check of stage 2 on a Mac where `log config --mode private_data:on` is not available.
+    /// Off by default; never on in a release build.
+    private let unmask: Bool
 
-    init(detector: LayoutDetector) {
+    init(detector: LayoutDetector, unmaskLog: Bool = false) {
         observer = TypingObserver(detector: detector, active: nil)
+        unmask = unmaskLog
+        if unmaskLog { Log.system.notice("--unmask-log: typed keys of decided words are logged as public values") }
     }
 
     var isPaused: Bool { observer.paused }
@@ -91,13 +97,25 @@ final class Observation {
             break
         case .midWord(let keys, let letters, let from, let to):
             counts.midWord += 1
-            Log.detector.info("mid-word at \(letters, privacy: .public): \(Self.describe(keys)) \(from, privacy: .public) → \(to, privacy: .public)")
+            if unmask {
+                Log.detector.info("mid-word at \(letters, privacy: .public): \(Self.describe(keys), privacy: .public) \(from, privacy: .public) → \(to, privacy: .public)")
+            } else {
+                Log.detector.info("mid-word at \(letters, privacy: .public): \(Self.describe(keys)) \(from, privacy: .public) → \(to, privacy: .public)")
+            }
         case .boundary(let keys, let terminator, let from, let to):
             counts.boundary += 1
-            Log.detector.info("boundary (\(Self.name(terminator), privacy: .public)): \(Self.describe(keys)) \(from, privacy: .public) → \(to, privacy: .public)")
+            if unmask {
+                Log.detector.info("boundary (\(Self.name(terminator), privacy: .public)): \(Self.describe(keys), privacy: .public) \(from, privacy: .public) → \(to, privacy: .public)")
+            } else {
+                Log.detector.info("boundary (\(Self.name(terminator), privacy: .public)): \(Self.describe(keys)) \(from, privacy: .public) → \(to, privacy: .public)")
+            }
         case .leftAlone(let keys, let terminator, let from, let verdict):
             counts.leftAlone += 1
-            Log.detector.debug("left alone (\(Self.name(terminator), privacy: .public)): \(Self.describe(keys)) \(from, privacy: .public), verdict \(verdict ?? "unsure", privacy: .public)")
+            if unmask {
+                Log.detector.debug("left alone (\(Self.name(terminator), privacy: .public)): \(Self.describe(keys), privacy: .public) \(from, privacy: .public), verdict \(verdict ?? "unsure", privacy: .public)")
+            } else {
+                Log.detector.debug("left alone (\(Self.name(terminator), privacy: .public)): \(Self.describe(keys)) \(from, privacy: .public), verdict \(verdict ?? "unsure", privacy: .public)")
+            }
         }
     }
 

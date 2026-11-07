@@ -23,7 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .init(code: "en", layout: .usEnglish, model: en),
                 .init(code: "ru", layout: .russianPC, model: ru),
             ])
-            let observation = Observation(detector: detector)
+            let observation = Observation(detector: detector,
+                                          unmaskLog: ProcessInfo.processInfo.arguments.contains("--unmask-log"))
             observation.onStatusChange = { [weak self] status in self?.show(status) }
             self.observation = observation
             observation.start()
