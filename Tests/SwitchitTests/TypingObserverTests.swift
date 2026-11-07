@@ -152,11 +152,17 @@ final class TypingObserverTests: XCTestCase {
         XCTAssertEqual(o.active, "ru")
     }
 
-    func testNoEnabledLayoutsObservesNothing() {
+    func testActiveLanguageWithoutALayoutObservesNothing() {
         var o = observer()
-        _ = o.handle(.layoutChanged(active: "en", layouts: [:]))
-        XCTAssertFalse(o.isObserving, "active says en but no layout is enabled for it")
+        _ = o.handle(.layoutChanged(active: "en", layouts: ["ru": .russianPC]))
+        XCTAssertFalse(o.isObserving, "active says en but no English layout is enabled")
         XCTAssertTrue(type("ghbdtn", &o).allSatisfy { $0 == .none })
+        XCTAssertEqual(o.handle(.key(.space, [])), .none)
+        // No enabled layouts at all (the system told us nothing): the default tables stand in,
+        // so a test or a bare `init(models:)` still has a detector.
+        _ = o.handle(.layoutChanged(active: "en", layouts: [:]))
+        XCTAssertEqual(o.detector.languages.map(\.code), ["en", "ru"])
+        XCTAssertTrue(o.isObserving)
     }
 
     func testClickAndAppChangeFlushTheWord() {
