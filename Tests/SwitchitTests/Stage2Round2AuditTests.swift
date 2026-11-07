@@ -107,10 +107,13 @@ final class Stage2Round2AuditTests: XCTestCase {
         var digit = TypingObserver(models: models, layouts: ["en": selected.layout, "ru": .russianPC], active: "en")
         _ = type("ghbdtn", into: &digit)
         XCTAssertEqual(digit.handle(.key(.six, [])), .boundary(keys: Keys.codes("ghbdtn"), terminator: .six, from: "en", to: "ru"))
-        // On plain U.S. the quote is ordinary punctuation and ends the word.
+        // On plain U.S. the quote key is not dead: it is a word key (э in Russian) and simply
+        // joins the run — no veto.
         var us = TypingObserver(detector: TestDetector.shared, active: "en")
         _ = type("ghbdtn", into: &us)
-        XCTAssertEqual(us.handle(.key(.quote, [])), .boundary(keys: Keys.codes("ghbdtn"), terminator: .quote, from: "en", to: "ru"))
+        XCTAssertEqual(us.handle(.key(.quote, [])), .none)
+        XCTAssertFalse(us.buffer.suppressed)
+        XCTAssertEqual(us.buffer.strokes.count, 7)
         XCTAssertTrue(Layout.usEnglish.deadKeys.isEmpty)
         XCTAssertTrue(Layout.russian.deadKeys.isEmpty)
         XCTAssertTrue(Layout.russianPC.deadKeys.isEmpty)
