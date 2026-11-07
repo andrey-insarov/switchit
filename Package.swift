@@ -1,5 +1,12 @@
 // swift-tools-version:5.9
 import PackageDescription
+import Foundation
+
+// SWITCHIT_APPSTORE=1 builds the App Store edition: sandboxed, no Sparkle (later), no diary (later).
+// The APPSTORE compile flag hides what the Store forbids. Same scheme as Keepit's KEEPIT_APPSTORE.
+let appStore = ProcessInfo.processInfo.environment["SWITCHIT_APPSTORE"] == "1"
+// SWITCHIT_DIAGNOSTICS=1 compiles the diagnostics paths (--unmask-log) in; release builds never get them.
+let diagnostics = ProcessInfo.processInfo.environment["SWITCHIT_DIAGNOSTICS"] == "1"
 
 let package = Package(
     name: "Switchit",
@@ -19,6 +26,7 @@ let package = Package(
             name: "Switchit",
             dependencies: ["SwitchitCore"],
             path: "Sources/Switchit",
+            swiftSettings: (appStore ? [.define("APPSTORE")] : []) + (diagnostics ? [.define("DIAGNOSTICS")] : []),
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("Carbon"),

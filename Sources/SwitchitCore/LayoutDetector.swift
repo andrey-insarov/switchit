@@ -37,8 +37,9 @@ public struct LayoutDetector: Sendable {
 
     public let languages: [Language]
 
+    /// `languages` may be empty — the system reported no usable keyboard layout — and such a
+    /// detector decides nothing (auditor's stage-2 round 2, P1: no default tables stand in).
     public init(languages: [Language]) {
-        precondition(!languages.isEmpty)
         self.languages = languages
     }
 

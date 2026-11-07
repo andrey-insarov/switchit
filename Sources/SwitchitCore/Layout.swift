@@ -6,18 +6,23 @@
 /// and at runtime the app does not need the table at all: it asks the system to translate key
 /// codes under the real input source (`UCKeyTranslate`, stage 2). The built-in tables below are
 /// for tests and for the detector's unit of work.
-public struct Layout: Sendable, Identifiable {
+public struct Layout: Sendable, Identifiable, Equatable {
     /// The input source ID macOS uses for this layout, e.g. `com.apple.keylayout.US`.
     public let id: String
     /// ISO 639-1 code of the language the layout types, e.g. `en`, `ru`. Picks the language model.
     public let language: String
     /// Lower-case letter per key.
     private let letters: [KeyCode: Character]
+    /// Strokes that start a composition *without* Option (`'` + `e` = `é` on U.S. International –
+    /// PC). The observer cannot read what they compose into, so such a stroke vetoes the word
+    /// (auditor's stage-2 round 2, P2). `shift` matters: `^` is Shift-6, plain 6 is a digit.
+    public let deadKeys: Set<KeyStroke>
 
-    public init(id: String, language: String, letters: [KeyCode: Character]) {
+    public init(id: String, language: String, letters: [KeyCode: Character], deadKeys: Set<KeyStroke> = []) {
         self.id = id
         self.language = language
         self.letters = letters
+        self.deadKeys = deadKeys
     }
 
     /// Keys that produce a letter in this layout. The word buffer treats these as word-forming.
@@ -86,6 +91,46 @@ extension Layout {
         letters: table("йцукенгшщзхъфывапролджэячсмитьбю", extra: [.grave: "ё"])
     )
 
+    /// U.S. International – PC: US letters, but `'` `"` `` ` `` `~` `^` are dead keys that compose
+    /// with the next vowel (confirmed by the auditor with `UCKeyTranslate`).
+    public static let usInternationalPC = Layout(
+        id: "com.apple.keylayout.USInternational-PC",
+        language: "en",
+        letters: table("qwertyuiop..asdfghjkl..zxcvbnm.."),
+        deadKeys: [KeyStroke(.quote), KeyStroke(.quote, shift: true),
+                   KeyStroke(.grave), KeyStroke(.grave, shift: true),
+                   KeyStroke(.six, shift: true)]
+    )
+
     /// The layouts the tests and the first detector know about.
-    public static let builtIn: [Layout] = [usEnglish, russian, russianPC]
+    public static let builtIn: [Layout] = [usEnglish, usInternationalPC, russian, russianPC]
+}
+
+// MARK: - Input sources
+
+extension Layout {
+    /// The detector language and letter table for a macOS keyboard-layout input source ID
+    /// (`kTISPropertyInputSourceID`), or nil for a layout 1.0 does not handle (AZERTY, QWERTZ,
+    /// Dvorak, Colemak, phonetic Russian …). Only *keyboard layouts* belong here: an input method
+    /// (Pinyin, Romaji …) reports a base layout of US or ABC through
+    /// `TISCopyCurrentKeyboardLayoutInputSource`, and must be gated by the selected source's own
+    /// ID and type, never by its base layout (auditor's stage-2 P1).
+    public static func forInputSource(id: String) -> (code: String, layout: Layout)? {
+        switch id {
+        case "com.apple.keylayout.US", "com.apple.keylayout.ABC", "com.apple.keylayout.British",
+             "com.apple.keylayout.USExtended", "com.apple.keylayout.British-PC",
+             "com.apple.keylayout.Australian", "com.apple.keylayout.Canadian", "com.apple.keylayout.Irish":
+            // Same letter positions as US and no dead keys without Option; they differ in
+            // punctuation only.
+            return ("en", .usEnglish)
+        case "com.apple.keylayout.USInternational-PC":
+            return ("en", .usInternationalPC)
+        case "com.apple.keylayout.Russian":
+            return ("ru", .russian)
+        case "com.apple.keylayout.RussianWin":
+            return ("ru", .russianPC)
+        default:
+            return nil
+        }
+    }
 }

@@ -58,7 +58,7 @@ public struct WordBuffer: Sendable {
             }
             return .none
         }
-        if stroke.code.isArrow {
+        if stroke.code.movesCaret {
             // Veto: the user moved the caret inside or right after the word. Drop the run and
             // keep dropping until a boundary — this word is never corrected.
             strokes.removeAll()
@@ -77,6 +77,19 @@ public struct WordBuffer: Sendable {
     public mutating func flush() -> Event {
         let finished = take()
         return finished.isEmpty ? .none : .word(strokes: finished, terminator: nil)
+    }
+
+    /// Drops the current run and ignores everything until the next boundary: the caret or the
+    /// text changed in a way the buffer cannot follow (word deletion, a composed character …).
+    public mutating func suppressUntilBoundary() {
+        strokes.removeAll()
+        suppressed = true
+    }
+
+    /// Drops the current run but keeps a veto that is already in force: for an event that ends
+    /// the run without telling the buffer anything about the screen (a ⌘/⌃ shortcut).
+    public mutating func dropRun() {
+        strokes.removeAll()
     }
 
     /// Drops the current run silently.

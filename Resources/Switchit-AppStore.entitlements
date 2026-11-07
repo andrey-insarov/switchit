@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- App Store edition: sandboxed. The event tap works in the sandbox once the user grants
+         Accessibility (checked on a shipping App Store switcher, 6 Nov 2026). Storage stays in
+         the container; nothing else is requested until a feature needs it. -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+</dict>
+</plist>
