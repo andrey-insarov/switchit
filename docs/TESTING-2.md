@@ -68,7 +68,10 @@ field), Telegram, VS Code, Terminal, Pages, Notes. One word per line; press Spac
 | `grep`              | `left alone … verdict unsure`                       |
 | `gh` then ← then `bdtn` Space | nothing for this word (arrow veto)       |
 | `foo` Space Backspace `ghbdtn` Space | nothing (Backspace past the start) |
-| `ghb` then ⌘S       | nothing more for this word                          |
+| `ghb` then ⌘S then `dtn` Space | nothing for this word (a shortcut mid-word: nothing until the boundary) |
+| `he` then ⌘← then ⌘B then `ghb` Space | nothing (⌘B does not lift the caret veto)  |
+| `ghbdtn` then fn-⌫ (Forward Delete) | nothing (an edit, not a boundary)          |
+| `ghbdtn` then Home / End | nothing (caret keys veto like arrows)               |
 | right Option alone  | `shortcut: right Option`                            |
 | `KFC` with Caps Lock on | `left alone … verdict unsure` — Caps Lock counts as capitals |
 | `ghbdtn` then ⌥⌫    | nothing for this word (deleted, not decided)        |
@@ -98,6 +101,9 @@ And:
   not supported**, nothing logged while it is active;
 - an input method (add Japanese – Romaji temporarily) → the same **not supported**, even though
   its base layout is US: the app looks at the selected source, not the layout under it;
+- U.S. International – PC (add temporarily): type `caf'e` Space → café on screen, nothing in the
+  log for it (`'` is a dead key there); `ghbdtn'` → nothing either, while on plain U.S. the same
+  `'` ends the word with a `boundary`;
 - revoke the Accessibility permission while the app runs (System Settings → Privacy & Security →
   Accessibility, toggle off) → within a second the status reads **Needs Accessibility
   permission** and the log says `Accessibility permission gone`; toggle on → observing again.

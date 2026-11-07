@@ -108,13 +108,8 @@ public struct TypingObserver {
             guard let model = models[code], let layout = layouts[code] else { return nil }
             return .init(code: code, layout: layout, model: model)
         }
-        // A detector needs at least one language; with none enabled, keep the models' own
-        // default tables so the structure stays valid — `active` is nil then and nothing is decided.
-        if languages.isEmpty {
-            return LayoutDetector(languages: models.keys.sorted().map {
-                .init(code: $0, layout: $0 == "ru" ? .russianPC : .usEnglish, model: models[$0]!)
-            })
-        }
+        // No enabled layout the detector knows → an empty detector: `isObserving` is false
+        // whatever `active` says, and no default table stands in (auditor's round 2, P1).
         return LayoutDetector(languages: languages)
     }
 
@@ -128,6 +123,11 @@ public struct TypingObserver {
     public var isObserving: Bool {
         guard let active, !secureInput, !paused else { return false }
         return detector.languages.contains { $0.code == active }
+    }
+
+    /// The letter table of the active language, when it is enabled.
+    public var activeLayout: Layout? {
+        detector.languages.first { $0.code == active }?.layout
     }
 
     public mutating func handle(_ input: Input) -> Decision {
@@ -156,23 +156,27 @@ public struct TypingObserver {
             return finish(buffer.flush(), terminator: nil)
         case .key(let code, let mods):
             guard isObserving, let from = active else { drop(); return .none }
-            // 1. Caret movement, with or without modifiers (⌘← ⌥→ fn-arrows): the buffer no
-            //    longer matches the screen. Veto until the next boundary.
-            if code.isArrow {
+            // 1. Caret movement, with or without modifiers (⌘← ⌥→ fn-arrows, Home, End, Page
+            //    Up/Down): the buffer no longer matches the screen. Veto until the next boundary.
+            if code.movesCaret {
                 _ = buffer.append(KeyStroke(code))
                 midWordReported = false
                 return .none
             }
-            // 2. Deleting more than a character (⌥⌫ ⌘⌫): the text changed in a way the buffer
-            //    cannot follow. Veto, and say nothing about the word being deleted.
-            if code == .delete && !mods.intersection([.option, .command, .control]).isEmpty {
+            // 2. Deleting other than the last character (⌥⌫ ⌘⌫, Forward Delete): the text
+            //    changed in a way the buffer cannot follow. Veto, and say nothing about the word.
+            if code == .forwardDelete || (code == .delete && !mods.intersection([.option, .command, .control]).isEmpty) {
                 buffer.suppressUntilBoundary()
                 midWordReported = false
                 return .none
             }
-            // 3. A shortcut (⌘S, ⌃A …), not typing. The word is over and nothing is said about it.
+            // 3. A shortcut (⌘S, ⌃A, ⌘B …), not typing. Nothing is said about the word — and
+            //    the caret is still where it was, so a veto already in force stays in force
+            //    (auditor's round 2, P2), and letters typed next join whatever is on screen:
+            //    nothing until the next boundary.
             if !mods.intersection([.command, .control]).isEmpty {
-                drop()
+                buffer.suppressUntilBoundary()
+                midWordReported = false
                 return .none
             }
             // 4. Option with a key: a dead key (⌥e + e = é), a special character (⌥8 = •) or
@@ -182,7 +186,14 @@ public struct TypingObserver {
                 midWordReported = false
                 return .none
             }
-            // 5. Typing.
+            // 5. A dead key of the selected layout without Option (`'` on U.S. International –
+            //    PC): a composition the buffer cannot read. The same veto.
+            if let layout = activeLayout, layout.deadKeys.contains(KeyStroke(code, shift: mods.contains(.shift))) {
+                buffer.suppressUntilBoundary()
+                midWordReported = false
+                return .none
+            }
+            // 6. Typing.
             let event = buffer.append(KeyStroke(code, shift: mods.uppercase))
             switch event {
             case .word:

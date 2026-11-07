@@ -99,7 +99,9 @@ final class TypingObserverTests: XCTestCase {
         _ = type("ghb", &o)                                   // mid-word already reported
         XCTAssertEqual(o.handle(.key(.s, [.command])), .none)  // ⌘S
         XCTAssertFalse(o.midWordReported)
+        XCTAssertTrue(o.buffer.suppressed, "an unknown edit: nothing until the boundary")
         XCTAssertEqual(o.handle(.key(.space, [])), .none, "the word is gone, not reported")
+        XCTAssertFalse(o.buffer.suppressed)
     }
 
     func testOptionKeyVetoesTheWord() {
@@ -158,11 +160,11 @@ final class TypingObserverTests: XCTestCase {
         XCTAssertFalse(o.isObserving, "active says en but no English layout is enabled")
         XCTAssertTrue(type("ghbdtn", &o).allSatisfy { $0 == .none })
         XCTAssertEqual(o.handle(.key(.space, [])), .none)
-        // No enabled layouts at all (the system told us nothing): the default tables stand in,
-        // so a test or a bare `init(models:)` still has a detector.
+        // No enabled layouts at all (the system told us nothing): nothing is observed either —
+        // no default table stands in (auditor's round 2, P1).
         _ = o.handle(.layoutChanged(active: "en", layouts: [:]))
-        XCTAssertEqual(o.detector.languages.map(\.code), ["en", "ru"])
-        XCTAssertTrue(o.isObserving)
+        XCTAssertTrue(o.detector.languages.isEmpty)
+        XCTAssertFalse(o.isObserving)
     }
 
     func testClickAndAppChangeFlushTheWord() {

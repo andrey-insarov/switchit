@@ -74,7 +74,15 @@ public struct KeyCode: Hashable, Sendable {
     public static let upArrow = KeyCode(0x7E)
 
     /// The caret moved: the buffer no longer matches what is on screen.
+    public static let forwardDelete = KeyCode(0x75)   // kVK_ForwardDelete; also fn-Backspace
+    public static let home = KeyCode(0x73)
+    public static let end = KeyCode(0x77)
+    public static let pageUp = KeyCode(0x74)
+    public static let pageDown = KeyCode(0x79)
+
     public var isArrow: Bool { self == .leftArrow || self == .rightArrow || self == .downArrow || self == .upArrow }
+    /// Keys that move the caret without typing: arrows, Home, End, Page Up/Down.
+    public var movesCaret: Bool { isArrow || self == .home || self == .end || self == .pageUp || self == .pageDown }
 }
 
 /// One key press as the detector sees it: which key, and whether Shift was held.

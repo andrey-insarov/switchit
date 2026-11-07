@@ -36,12 +36,17 @@ jobs:
       - name: Launch smoke test (models load, menu built, tap tried without the permission → exit 0)
         run: perl -e 'alarm 60; exec @ARGV' ./Switchit.app/Contents/MacOS/Switchit --selftest
 
-      - name: Smoke test fails on a broken model (exit 1)
+      - name: Smoke test fails on a broken model (exit code exactly 1, not a crash or a timeout)
         run: |
           cp -R Switchit.app Broken.app
           printf 'x' >> "$(find Broken.app -name model-en.txt)"
           codesign --force --deep --sign - Broken.app
-          if perl -e 'alarm 60; exec @ARGV' ./Broken.app/Contents/MacOS/Switchit --selftest; then echo "broken model loaded"; exit 1; fi
+          set +e
+          perl -e 'alarm 60; exec @ARGV' ./Broken.app/Contents/MacOS/Switchit --selftest
+          status=$?
+          set -e
+          echo "exit status: $status"
+          test "$status" -eq 1
           rm -rf Broken.app
 
       - name: App Store edition — package and launch

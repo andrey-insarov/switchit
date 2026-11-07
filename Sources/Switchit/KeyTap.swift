@@ -39,6 +39,7 @@ final class KeyTap {
     /// Creates and starts the tap. Returns false when the permission is missing.
     func start() -> Bool {
         if port != nil { return true }
+        rightOptionAlone = false    // a new port sees no history (auditor's round 2, P2)
         let mask: CGEventMask =
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.flagsChanged.rawValue) |
@@ -70,6 +71,7 @@ final class KeyTap {
         if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
         self.source = nil
         self.port = nil
+        rightOptionAlone = false
         Log.system.info("event tap stopped")
     }
 

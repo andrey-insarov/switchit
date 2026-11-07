@@ -13,11 +13,16 @@ public struct Layout: Sendable, Identifiable, Equatable {
     public let language: String
     /// Lower-case letter per key.
     private let letters: [KeyCode: Character]
+    /// Strokes that start a composition *without* Option (`'` + `e` = `é` on U.S. International –
+    /// PC). The observer cannot read what they compose into, so such a stroke vetoes the word
+    /// (auditor's stage-2 round 2, P2). `shift` matters: `^` is Shift-6, plain 6 is a digit.
+    public let deadKeys: Set<KeyStroke>
 
-    public init(id: String, language: String, letters: [KeyCode: Character]) {
+    public init(id: String, language: String, letters: [KeyCode: Character], deadKeys: Set<KeyStroke> = []) {
         self.id = id
         self.language = language
         self.letters = letters
+        self.deadKeys = deadKeys
     }
 
     /// Keys that produce a letter in this layout. The word buffer treats these as word-forming.
@@ -86,8 +91,19 @@ extension Layout {
         letters: table("йцукенгшщзхъфывапролджэячсмитьбю", extra: [.grave: "ё"])
     )
 
+    /// U.S. International – PC: US letters, but `'` `"` `` ` `` `~` `^` are dead keys that compose
+    /// with the next vowel (confirmed by the auditor with `UCKeyTranslate`).
+    public static let usInternationalPC = Layout(
+        id: "com.apple.keylayout.USInternational-PC",
+        language: "en",
+        letters: table("qwertyuiop..asdfghjkl..zxcvbnm.."),
+        deadKeys: [KeyStroke(.quote), KeyStroke(.quote, shift: true),
+                   KeyStroke(.grave), KeyStroke(.grave, shift: true),
+                   KeyStroke(.six, shift: true)]
+    )
+
     /// The layouts the tests and the first detector know about.
-    public static let builtIn: [Layout] = [usEnglish, russian, russianPC]
+    public static let builtIn: [Layout] = [usEnglish, usInternationalPC, russian, russianPC]
 }
 
 // MARK: - Input sources
@@ -102,11 +118,13 @@ extension Layout {
     public static func forInputSource(id: String) -> (code: String, layout: Layout)? {
         switch id {
         case "com.apple.keylayout.US", "com.apple.keylayout.ABC", "com.apple.keylayout.British",
-             "com.apple.keylayout.USExtended", "com.apple.keylayout.USInternational-PC",
-             "com.apple.keylayout.British-PC", "com.apple.keylayout.Australian",
-             "com.apple.keylayout.Canadian", "com.apple.keylayout.Irish":
-            // Same letter positions as US; they differ in punctuation and dead keys only.
+             "com.apple.keylayout.USExtended", "com.apple.keylayout.British-PC",
+             "com.apple.keylayout.Australian", "com.apple.keylayout.Canadian", "com.apple.keylayout.Irish":
+            // Same letter positions as US and no dead keys without Option; they differ in
+            // punctuation only.
             return ("en", .usEnglish)
+        case "com.apple.keylayout.USInternational-PC":
+            return ("en", .usInternationalPC)
         case "com.apple.keylayout.Russian":
             return ("ru", .russian)
         case "com.apple.keylayout.RussianWin":
