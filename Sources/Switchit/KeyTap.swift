@@ -24,8 +24,17 @@ final class KeyTap {
     var onClick: (() -> Void)?
     /// Called when right Option was pressed and released with no key in between.
     var onShortcut: (() -> Void)?
+    /// Called when macOS disabled the tap (timeout, user input) and it was re-enabled: events
+    /// were lost in between, so whatever the observer buffered may be stale.
+    var onInterrupted: (() -> Void)?
 
+    /// A port was created. Not the same as receiving events: see `isLive`.
     var isRunning: Bool { port != nil }
+    /// The tap exists, macOS reports it enabled, and the permission still holds.
+    var isLive: Bool {
+        guard let port else { return false }
+        return CGEvent.tapIsEnabled(tap: port) && Accessibility.isTrusted()
+    }
 
     /// Creates and starts the tap. Returns false when the permission is missing.
     func start() -> Bool {
@@ -67,15 +76,18 @@ final class KeyTap {
     private func handle(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
-            // macOS disables a tap whose callback was too slow; re-enable and carry on.
+            // macOS disables a tap whose callback was too slow; re-enable and carry on — but
+            // events were lost: forget the half-pressed shortcut and tell the observer.
             if let port { CGEvent.tapEnable(tap: port, enable: true) }
+            rightOptionAlone = false
             Log.system.notice("event tap re-enabled after \(type == .tapDisabledByTimeout ? "timeout" : "user input", privacy: .public)")
+            onInterrupted?()
             return Unmanaged.passUnretained(event)
         case .keyDown:
             rightOptionAlone = false
             // Our own synthetic events (stage 3) will carry a marker; nothing to skip yet.
             let code = KeyCode(UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode)))
-            onKey?(code, Self.modifiers(of: event.flags))
+            onKey?(code, TypingObserver.Modifiers(eventFlags: event.flags.rawValue))
         case .flagsChanged:
             let keycode = event.getIntegerValueField(.keyboardEventKeycode)
             let flags = event.flags
@@ -99,13 +111,4 @@ final class KeyTap {
         return Unmanaged.passUnretained(event)
     }
 
-    static func modifiers(of flags: CGEventFlags) -> TypingObserver.Modifiers {
-        var m: TypingObserver.Modifiers = []
-        if flags.contains(.maskShift) { m.insert(.shift) }
-        if flags.contains(.maskAlternate) { m.insert(.option) }
-        if flags.contains(.maskCommand) { m.insert(.command) }
-        if flags.contains(.maskControl) { m.insert(.control) }
-        if flags.contains(.maskSecondaryFn) { m.insert(.function) }
-        return m
-    }
 }

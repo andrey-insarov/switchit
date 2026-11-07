@@ -249,8 +249,11 @@ Safari, Terminal, VS Code, Slack, Pages.
 **Stage 3 — switching and correction.** `TIS*` wrapper; correction of the last word by hot key;
 automatic mode after a word; choice of input method (a)/(b) from the results in the same
 applications; loop protection (never correct a word that was just corrected; do not correct when
-the user switched the layout themselves). Tests for the correction planner (pure logic: what to
-delete, what to type).
+the user switched the layout themselves; the tap marks its own synthetic events and ignores them).
+Tests for the correction planner (pure logic: what to delete, what to type). Carried over from the
+stage-2 audit: a focused-window observer (AX `kAXFocusedWindowChangedNotification`) so that a
+window change inside one app flushes the word like an app change does — the observer already
+accepts `.flush(.windowChanged)`.
 
 **Stage 4 — the app.** Menu bar (status, pause, current layout, "fix last word"), Settings:
 General / Shortcuts / Languages / Exclusions / Advanced — HIG, the Keepit rules (one control width

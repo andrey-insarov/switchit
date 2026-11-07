@@ -16,28 +16,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setIcon("keyboard")
         statusItem.menu = buildMenu()
 
+        let selftest = ProcessInfo.processInfo.arguments.contains("--selftest")
         do {
-            let en = try LanguageModel.load(language: "en")
-            let ru = try LanguageModel.load(language: "ru")
-            let detector = LayoutDetector(languages: [
-                .init(code: "en", layout: .usEnglish, model: en),
-                .init(code: "ru", layout: .russianPC, model: ru),
-            ])
-            let observation = Observation(detector: detector,
+            let models = ["en": try LanguageModel.load(language: "en"), "ru": try LanguageModel.load(language: "ru")]
+            let observation = Observation(models: models,
                                           unmaskLog: ProcessInfo.processInfo.arguments.contains("--unmask-log"))
             observation.onStatusChange = { [weak self] status in self?.show(status) }
             self.observation = observation
             observation.start()
             show(observation.status)
+            if selftest {
+                // CI: the models loaded, the app built its menu and tried the tap (which fails
+                // without the permission, as expected). That is the smoke test: exit 0.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { exit(0) }
+            }
         } catch {
             // A model that does not load is a broken bundle: say so, do nothing else.
             Log.system.fault("language model failed to load: \(String(describing: error), privacy: .public)")
             statusLine.title = "Language model failed to load"
             setIcon("exclamationmark.triangle")
-        }
-        if ProcessInfo.processInfo.arguments.contains("--selftest") {
-            // CI: the app launched, built its menu and tried the tap; that is the smoke test.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+            if selftest { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { exit(1) } }
         }
     }
 
@@ -75,8 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .secureInput:
             statusLine.title = "Password field — not watching"
             setIcon("lock")
-        case .unknownLayout(let name):
-            statusLine.title = "\(name) — layout not supported"
+        case .unknownSource(let name):
+            statusLine.title = "\(name) — not supported"
             setIcon("keyboard")
         case .observing(let name):
             statusLine.title = "Observing: \(name)"

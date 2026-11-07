@@ -19,3 +19,4 @@ SHA256SUMS
 sparkle_private_key*
 __pycache__/
 *.dmg
+.build-diag/

@@ -33,11 +33,25 @@ jobs:
       - name: Package app (ad-hoc)
         run: make app VERSION=$(cat VERSION)
 
-      - name: Launch smoke test (the app starts, builds its menu, tries the tap without the permission, quits)
+      - name: Launch smoke test (models load, menu built, tap tried without the permission → exit 0)
         run: perl -e 'alarm 60; exec @ARGV' ./Switchit.app/Contents/MacOS/Switchit --selftest
 
-      - name: App Store edition builds too
-        run: make build APPSTORE=1
+      - name: Smoke test fails on a broken model (exit 1)
+        run: |
+          cp -R Switchit.app Broken.app
+          printf 'x' >> "$(find Broken.app -name model-en.txt)"
+          codesign --force --deep --sign - Broken.app
+          if perl -e 'alarm 60; exec @ARGV' ./Broken.app/Contents/MacOS/Switchit --selftest; then echo "broken model loaded"; exit 1; fi
+          rm -rf Broken.app
+
+      - name: App Store edition — package and launch
+        run: |
+          make app APPSTORE=1 VERSION=$(cat VERSION)
+          codesign -d --entitlements - Switchit.app 2>&1 | grep -q app-sandbox
+          perl -e 'alarm 60; exec @ARGV' ./Switchit.app/Contents/MacOS/Switchit --selftest
+
+      - name: Diagnostics build compiles
+        run: make build DIAG=1
 
       - name: Upload ad-hoc build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

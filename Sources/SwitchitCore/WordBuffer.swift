@@ -79,6 +79,13 @@ public struct WordBuffer: Sendable {
         return finished.isEmpty ? .none : .word(strokes: finished, terminator: nil)
     }
 
+    /// Drops the current run and ignores everything until the next boundary: the caret or the
+    /// text changed in a way the buffer cannot follow (word deletion, a composed character …).
+    public mutating func suppressUntilBoundary() {
+        strokes.removeAll()
+        suppressed = true
+    }
+
     /// Drops the current run silently.
     public mutating func reset() {
         strokes.removeAll()

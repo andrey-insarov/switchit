@@ -102,11 +102,16 @@ final class TypingObserverTests: XCTestCase {
         XCTAssertEqual(o.handle(.key(.space, [])), .none, "the word is gone, not reported")
     }
 
-    func testOptionCharacterIsABoundary() {
+    func testOptionKeyVetoesTheWord() {
+        // ⌥ with a key is a dead key, a special character or a word deletion: an edit the buffer
+        // cannot read. The word is dropped and nothing is observed until the next boundary
+        // (auditor's stage-2 P2 — earlier this was treated as a boundary).
         var o = observer()
         _ = type("ghbdtn", &o)
-        // ⌥8 (•) ends the word like punctuation would, and the word is decided.
-        XCTAssertEqual(o.handle(.key(.eight, [.option])), .boundary(keys: Keys.codes("ghbdtn"), terminator: .eight, from: "en", to: "ru"))
+        XCTAssertEqual(o.handle(.key(.eight, [.option])), .none)
+        XCTAssertTrue(o.buffer.suppressed)
+        XCTAssertEqual(o.handle(.key(.space, [])), .none)
+        XCTAssertEqual(type("ghb", &o).last, .midWord(keys: Keys.codes("ghb"), letters: 3, from: "en", to: "ru"))
     }
 
     // MARK: Pause, secure input, layouts, flushes
@@ -135,16 +140,23 @@ final class TypingObserverTests: XCTestCase {
         var o = observer(active: nil)
         XCTAssertFalse(o.isObserving)
         XCTAssertTrue(type("ghbdtn", &o).allSatisfy { $0 == .none })
-        XCTAssertEqual(o.handle(.layoutChanged(language: "en")), .none)
+        XCTAssertEqual(o.handle(.layoutChanged(active: "en", layouts: ["en": .usEnglish, "ru": .russianPC])), .none)
         XCTAssertEqual(type("ghb", &o).last, .midWord(keys: Keys.codes("ghb"), letters: 3, from: "en", to: "ru"))
     }
 
     func testLayoutChangeDropsTheWord() {
         var o = observer()
         _ = type("ghb", &o)
-        XCTAssertEqual(o.handle(.layoutChanged(language: "ru")), .none)
+        XCTAssertEqual(o.handle(.layoutChanged(active: "ru", layouts: ["en": .usEnglish, "ru": .russianPC])), .none)
         XCTAssertTrue(o.buffer.isEmpty)
         XCTAssertEqual(o.active, "ru")
+    }
+
+    func testNoEnabledLayoutsObservesNothing() {
+        var o = observer()
+        _ = o.handle(.layoutChanged(active: "en", layouts: [:]))
+        XCTAssertFalse(o.isObserving, "active says en but no layout is enabled for it")
+        XCTAssertTrue(type("ghbdtn", &o).allSatisfy { $0 == .none })
     }
 
     func testClickAndAppChangeFlushTheWord() {

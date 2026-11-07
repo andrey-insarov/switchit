@@ -12,7 +12,9 @@ else
 ARCH_FLAGS =
 endif
 # APPSTORE=1 → the App Store edition: SWITCHIT_APPSTORE for SwiftPM, its own build path and entitlements.
+# DIAG=1 → a diagnostics build (--unmask-log compiled in), its own build path; never for a release.
 APPSTORE ?= 0
+DIAG ?= 0
 ifeq ($(APPSTORE),1)
 BUILD_ENV = SWITCHIT_APPSTORE=1
 BUILD_PATH = --build-path .build-appstore
@@ -21,6 +23,10 @@ else
 BUILD_ENV =
 BUILD_PATH =
 ENTITLEMENTS = Resources/Switchit.entitlements
+endif
+ifeq ($(DIAG),1)
+BUILD_ENV += SWITCHIT_DIAGNOSTICS=1
+BUILD_PATH = --build-path .build-diag
 endif
 BUILD    = $(shell $(BUILD_ENV) swift build -c release $(ARCH_FLAGS) $(BUILD_PATH) --show-bin-path 2>/dev/null)
 BUNDLE   = $(APP).app
@@ -63,4 +69,4 @@ install: app
 	@echo "Installed to /Applications/$(BUNDLE)"
 
 clean:
-	rm -rf .build .build-appstore $(BUNDLE) $(APP)-*.zip $(APP)-*.dmg
+	rm -rf .build .build-appstore .build-diag $(BUNDLE) $(APP)-*.zip $(APP)-*.dmg

@@ -6,7 +6,7 @@
 /// and at runtime the app does not need the table at all: it asks the system to translate key
 /// codes under the real input source (`UCKeyTranslate`, stage 2). The built-in tables below are
 /// for tests and for the detector's unit of work.
-public struct Layout: Sendable, Identifiable {
+public struct Layout: Sendable, Identifiable, Equatable {
     /// The input source ID macOS uses for this layout, e.g. `com.apple.keylayout.US`.
     public let id: String
     /// ISO 639-1 code of the language the layout types, e.g. `en`, `ru`. Picks the language model.
@@ -88,4 +88,31 @@ extension Layout {
 
     /// The layouts the tests and the first detector know about.
     public static let builtIn: [Layout] = [usEnglish, russian, russianPC]
+}
+
+// MARK: - Input sources
+
+extension Layout {
+    /// The detector language and letter table for a macOS keyboard-layout input source ID
+    /// (`kTISPropertyInputSourceID`), or nil for a layout 1.0 does not handle (AZERTY, QWERTZ,
+    /// Dvorak, Colemak, phonetic Russian …). Only *keyboard layouts* belong here: an input method
+    /// (Pinyin, Romaji …) reports a base layout of US or ABC through
+    /// `TISCopyCurrentKeyboardLayoutInputSource`, and must be gated by the selected source's own
+    /// ID and type, never by its base layout (auditor's stage-2 P1).
+    public static func forInputSource(id: String) -> (code: String, layout: Layout)? {
+        switch id {
+        case "com.apple.keylayout.US", "com.apple.keylayout.ABC", "com.apple.keylayout.British",
+             "com.apple.keylayout.USExtended", "com.apple.keylayout.USInternational-PC",
+             "com.apple.keylayout.British-PC", "com.apple.keylayout.Australian",
+             "com.apple.keylayout.Canadian", "com.apple.keylayout.Irish":
+            // Same letter positions as US; they differ in punctuation and dead keys only.
+            return ("en", .usEnglish)
+        case "com.apple.keylayout.Russian":
+            return ("ru", .russian)
+        case "com.apple.keylayout.RussianWin":
+            return ("ru", .russianPC)
+        default:
+            return nil
+        }
+    }
 }

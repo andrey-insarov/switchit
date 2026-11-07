@@ -10,14 +10,15 @@ reflect the state?
 cd ~/Documents/switchit
 git checkout stage-2-observe
 git pull
-make app SIGN_ID="Developer ID Application: UK Intis Telecom LTD (WQ66955SW2)"
+make app DIAG=1 SIGN_ID="Developer ID Application: UK Intis Telecom LTD (WQ66955SW2)"
 open Switchit.app --args --unmask-log
 ```
 
 Signing with the Developer ID keeps the Accessibility grant across rebuilds (an ad-hoc signature
-changes with every build, and macOS then treats the app as a new one). `--unmask-log` makes the
-app write the keys of decided words as public log values — for this check only; without it they
-show as `<private>`.
+changes with every build, and macOS then treats the app as a new one). `DIAG=1` builds the
+diagnostic edition: only there does `--unmask-log` exist, and it makes the app write the keys of
+decided words as public log values. A release build (`make app` without `DIAG=1`) ignores the
+flag and always logs them as `<private>` (auditor's stage-2 finding).
 
 The keyboard icon appears in the menu bar. Its first line reads **Needs Accessibility permission**.
 
@@ -69,6 +70,11 @@ field), Telegram, VS Code, Terminal, Pages, Notes. One word per line; press Spac
 | `foo` Space Backspace `ghbdtn` Space | nothing (Backspace past the start) |
 | `ghb` then ⌘S       | nothing more for this word                          |
 | right Option alone  | `shortcut: right Option`                            |
+| `KFC` with Caps Lock on | `left alone … verdict unsure` — Caps Lock counts as capitals |
+| `ghbdtn` then ⌥⌫    | nothing for this word (deleted, not decided)        |
+| `he` then ⌘← then `ghb` Space | nothing (the caret moved: ⌘-arrows veto like plain arrows) |
+| `caf` ⌥e `e` Space (café) | nothing for this word (dead key: an edit the app cannot read) |
+| `ghb` Esc `ghb`     | `mid-word at 3` twice — Esc clears the once-per-word latch |
 
 Then with the Russian layout active:
 
@@ -77,6 +83,7 @@ Then with the Russian layout active:
 | `руддщ` (keys hello) | `mid-word at 4: hell ru → en`, `boundary … → en`  |
 | `привет`            | `left alone … verdict ru`                           |
 | `рук`, `лун`        | `left alone … verdict ru` — protected               |
+| `ещё`, `мёрфи`      | one word each, `left alone` — ё is read where the *selected* Russian layout has it (Russian: on `\`; Russian – PC: on `` ` ``). Check with both layouts enabled; the log line `source … layouts en,ru` shows the rebuild on switching |
 
 And:
 
@@ -88,7 +95,12 @@ And:
   `secure input off`;
 - menu → **Pause** → status **Paused**, typing logs nothing; **Resume**;
 - a layout the detector does not know (add Dvorak or German temporarily) → status **… — layout
-  not supported**, nothing logged while it is active.
+  not supported**, nothing logged while it is active;
+- an input method (add Japanese – Romaji temporarily) → the same **not supported**, even though
+  its base layout is US: the app looks at the selected source, not the layout under it;
+- revoke the Accessibility permission while the app runs (System Settings → Privacy & Security →
+  Accessibility, toggle off) → within a second the status reads **Needs Accessibility
+  permission** and the log says `Accessibility permission gone`; toggle on → observing again.
 
 ## 5. What to report
 
